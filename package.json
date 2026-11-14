@@ -1,0 +1,35 @@
+{
+  "name": "cgu-hackathon-2026",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "eslint",
+    "test:arcgis": "node --env-file=.env test.js",
+    "prepare:ces": "node scripts/prepare-ces.mjs",
+    "test:burden": "node --experimental-strip-types --test tests/corridor-burden.test.mjs",
+    "test:candidates": "node --test tests/route-candidates.test.mjs",
+    "test:explain": "node --test tests/explain.test.mjs"
+  },
+  "dependencies": {
+    "@arcgis/core": "5.2.4",
+    "@turf/turf": "^7.4.0",
+    "next": "16.4.6",
+    "openai": "^7.57.0",
+    "react": "19.3.0",
+    "react-dom": "19.3.0"
+  },
+  "devDependencies": {
+    "@tailwindcss/turbopack": "4.3.3",
+    "@types/node": "^20",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "eslint": "^9",
+    "eslint-config-next": "16.4.6",
+    "tailwindcss": "4.3.3",
+    "typescript": "^5"
+  },
+  "type": "module"
+}
