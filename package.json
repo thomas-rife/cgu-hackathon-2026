@@ -1,0 +1,9 @@
+{
+  "name": "cgu-hackathon-2026",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "npm --prefix dispatch run dev",
+    "test:arcgis": "node --env-file=.env test.js"
+  }
+}
