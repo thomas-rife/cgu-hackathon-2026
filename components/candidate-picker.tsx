@@ -54,7 +54,7 @@ export default function CandidatePicker({
                 type="button"
                 aria-pressed={best.id === selectedId}
                 title={`${description} among the candidates found`}
-                className={`rounded-md border px-2 py-1 text-[10px] ${best.id === selectedId ? "border-blue-200 bg-blue-50 text-blue-800" : "border-slate-200 text-slate-600 hover:bg-slate-50"}`}
+                className={`rounded-md border px-2 py-1 text-xs ${best.id === selectedId ? "border-blue-200 bg-blue-50 text-blue-800" : "border-slate-200 text-slate-600 hover:bg-slate-50"}`}
                 onClick={() => onSelect(best.id)}
               >
                 {label}
@@ -63,7 +63,7 @@ export default function CandidatePicker({
           );
         })}
       </div>
-      <label title={`Default view shows ${recommendedCount} tagged routes. Show all reveals every distinct verified candidate, including untagged options.`} className="mt-2.5 flex cursor-pointer items-center gap-2 text-[11px] text-slate-600">
+      <label title={`Default view shows ${recommendedCount} tagged routes. Show all reveals every distinct verified candidate, including untagged options.`} className="mt-2.5 flex cursor-pointer items-center gap-2 text-xs text-slate-600">
         <input
           type="checkbox"
           className="accent-blue-600"
@@ -72,7 +72,7 @@ export default function CandidatePicker({
         />
         Show all candidates ({allCount})
       </label>
-      {/* <p className="mt-1.5 text-[9px] leading-relaxed text-slate-400">{showAll ? `${allCount} distinct routes found. Outperformed routes are marked.` : `Showing ${recommendedCount} trade-off options. We hide routes that are worse on every measure, but you can always see them.`} Default view keeps up to four routes. Tags rank the routes found; DAC miles are the absolute distance through disadvantaged communities within CES coverage.</p> */}
+      {/* <p className="mt-1.5 text-[11px] leading-relaxed text-slate-500">{showAll ? `${allCount} distinct routes found. Outperformed routes are marked.` : `Showing ${recommendedCount} trade-off options. We hide routes that are worse on every measure, but you can always see them.`} Default view keeps up to four routes. Tags rank the routes found; DAC miles are the absolute distance through disadvantaged communities within CES coverage.</p> */}
     </div>
   );
 }

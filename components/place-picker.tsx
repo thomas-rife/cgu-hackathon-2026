@@ -241,14 +241,14 @@ export default function PlacePicker({
                     )}
                   </span>
                   {place.address !== place.name && (
-                    <span className="block truncate text-slate-500">
+                    <span className="block truncate text-slate-600">
                       {place.address}
                     </span>
                   )}
                 </li>
               ))
             ) : (
-              <li role="presentation" className="px-3 py-2 text-slate-500">
+              <li role="presentation" className="px-3 py-2 text-slate-600">
                 {needsText
                   ? "Type at least 3 characters to find matches."
                   : loading
@@ -263,7 +263,7 @@ export default function PlacePicker({
         )}
       <div
         id={`${id}-status`}
-        className="text-xs leading-relaxed text-slate-500"
+        className="text-xs leading-relaxed text-slate-600"
         aria-live="polite"
       >
         {error ? (
@@ -302,13 +302,13 @@ export default function PlacePicker({
         ) : null}
       </div>
       {kind === "fuel" && (
-        <p className="text-xs text-slate-500">
+        <p className="text-xs text-slate-600">
           Fuel results may include ordinary gas stations. Confirm diesel and
           semi-truck access.
         </p>
       )}
       {kind === "yard" && (
-        <p className="text-xs text-slate-500">
+        <p className="text-xs text-slate-600">
           Terminal search results; yard coverage and gate access are not
           verified.
         </p>

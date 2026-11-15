@@ -111,7 +111,7 @@ test('noise thresholds are neutral and leave absolute totals and significant del
   for(const [unit,threshold] of [['$',.5],['mi',.5],['kg',1],['min',1],['pct',.5]]){
     for(const sign of [-1,1]){
       const small=sign*(threshold-.001);
-      assert.equal(isNoChange(small,unit),true);assert.equal(impactValue(small,unit),'No change');assert.equal(impactColor(small,unit),'text-slate-500');
+      assert.equal(isNoChange(small,unit),true);assert.equal(impactValue(small,unit),'No change');assert.equal(impactColor(small,unit),'text-slate-600');
       assert.equal(isNoChange(sign*threshold,unit),false);assert.notEqual(impactValue(sign*threshold,unit),'No change');assert.equal(impactColor(sign*threshold,unit),sign<0?'text-emerald-700':'text-red-700');
     }
   }
@@ -154,6 +154,19 @@ test('only the minimum normalized time plus DAC score earns Balanced',()=>{
   assert.equal(all.filter(c=>c.tags.includes('Balanced')).length,1);assert.ok(all[2].tags.includes('Balanced'));assert.ok(!all[1].tags.includes('Balanced'));
   assert.ok(balanceScore(all[2],all)<balanceScore(all[1],all));assert.equal(balanceScore(all[0],[all[0]]),0);
   const minima=rankCandidates([{route:route(0,60,50,30),source:'fastest'},{route:route(.05,80,60,10),source:'corridor'}]);assert.equal(minima.filter(c=>c.tags.includes('Balanced')).length,0);
+});
+test('Balanced requires sitting between the fastest and lowest-DAC routes on both time and DAC miles',()=>{
+  // One route wins both: the slower, higher-DAC route is not Balanced and is hidden by default.
+  const all=rankCandidates([{route:route(0,164,72,37.5),source:'fastest'},{route:route(.05,175,70,48.8),source:'corridor'},{route:route(.1,190,60,50),source:'shortest'}]);
+  assert.deepEqual(all[0].tags,['Fastest','Lowest community burden']);assert.deepEqual(all[1].tags,[]);assert.equal(all[1].dominated,false);
+  assert.ok(all.every(c=>!c.tags.includes('Balanced')));
+  assert.deepEqual(recommendedCandidates(all).map(c=>c.name),['Route A','Route C']);
+  // Between on time but not on DAC miles: still not Balanced.
+  const outside=rankCandidates([{route:route(0,60,60,30),source:'fastest'},{route:route(.05,70,50,35),source:'corridor'},{route:route(.1,90,65,10),source:'corridor'}]);
+  assert.ok(outside.every(c=>!c.tags.includes('Balanced')));
+  // Unknown DAC on the fastest route means no range to sit between.
+  const unknown=rankCandidates([{route:route(0,60,60,0,false),source:'fastest'},{route:route(.05,70,61,20),source:'corridor'},{route:route(.1,90,62,10),source:'corridor'}]);
+  assert.ok(unknown.every(c=>!c.tags.includes('Balanced')));
 });
 test('route options use only the blue violet teal slate palette, with unique default colors',()=>{
   assert.deepEqual(CANDIDATE_COLORS,['#2563eb','#7c3aed','#0d9488','#334155']);

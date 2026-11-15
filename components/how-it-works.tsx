@@ -185,7 +185,9 @@ export default function HowItWorks({
             Candidate searches compare fastest, shortest-distance, and different
             freeway corridors under the same disruptions. Default view shows
             tagged options: Fastest, Lowest DAC miles, Lowest CO₂, and at most
-            one Balanced route. Multiple tags may belong to one route. Show all
+            one Balanced route, which must fall between the fastest and the
+            lowest-DAC route on both time and DAC miles. Multiple tags may
+            belong to one route. Show all
             candidates reveals every distinct verified option, including routes
             that are worse on every measured outcome. Tags describe the options
             found, not a guaranteed global optimum.

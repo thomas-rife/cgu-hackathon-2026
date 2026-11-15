@@ -84,13 +84,13 @@ export default function DisruptionsPanel({
     >
       {!embedded && <div className="flex items-center justify-between gap-2">
         <h2 className="text-sm font-semibold">Disruptions</h2>
-        <span className="rounded border border-amber-200 bg-amber-50 px-2 py-0.5 text-[10px] font-medium text-amber-800">
+        <span className="rounded border border-amber-200 bg-amber-50 px-2 py-0.5 text-xs font-medium text-amber-800">
           Simulated
         </span>
       </div>}
-      {/* <p className="mt-2 text-[11px] leading-relaxed text-slate-500">Add disruptions to combine their effects in one alternate route. Fastest total truck travel time wins.</p> */}
+      {/* <p className="mt-2 text-xs leading-relaxed text-slate-600">Add disruptions to combine their effects in one alternate route. Fastest total truck travel time wins.</p> */}
       {!baseline && (
-        <p className="mt-2 text-xs text-slate-500">
+        <p className="mt-2 text-xs text-slate-600">
           Set a route to explore disruptions.
         </p>
       )}
@@ -121,7 +121,7 @@ export default function DisruptionsPanel({
               <button
                 type="button"
                 aria-label={`Remove disruption ${index + 1}`}
-                className="ml-auto text-[11px] text-slate-500 hover:text-red-700"
+                className="ml-auto text-xs text-slate-600 hover:text-red-700"
                 onClick={() =>
                   onChange({
                     disruptions: items.filter((other) => other.id !== item.id),
@@ -135,7 +135,7 @@ export default function DisruptionsPanel({
               <>
                 <label
                   htmlFor={`preset-${item.id}`}
-                  className="mb-1 block text-[11px] font-medium text-slate-600"
+                  className="mb-1 block text-xs font-medium text-slate-600"
                 >
                   Preset
                 </label>
@@ -169,7 +169,7 @@ export default function DisruptionsPanel({
               <>
                 <label
                   htmlFor={`freeway-${item.id}`}
-                  className="mb-1 block text-[11px] font-medium text-slate-600"
+                  className="mb-1 block text-xs font-medium text-slate-600"
                 >
                   Affected freeway
                 </label>
@@ -193,7 +193,7 @@ export default function DisruptionsPanel({
                     </option>
                   ))}
                 </select>
-                <p className="mt-2 text-[10px] leading-relaxed text-slate-500">
+                <p className="mt-2 text-xs leading-relaxed text-slate-600">
                   {item.type === "closure" ? "" : ``}
                 </p>
               </>
@@ -202,7 +202,7 @@ export default function DisruptionsPanel({
               <>
                 <label
                   htmlFor={`time-${item.id}`}
-                  className="flex justify-between gap-2 text-[11px] text-slate-500"
+                  className="flex justify-between gap-2 text-xs text-slate-600"
                 >
                   <span>
                     {item.type === "arrival" ? "Arrive by" : "Leave at"} ·
@@ -227,7 +227,7 @@ export default function DisruptionsPanel({
                     })
                   }
                 />
-                <p className="mt-1 text-[10px] leading-relaxed text-slate-500">
+                <p className="mt-1 text-xs leading-relaxed text-slate-600">
                   {item.type === "arrival"
                     ? "Estimates the latest time to leave, including all active disruptions. "
                     : "Recalculates the fastest route for this departure time. "}
@@ -255,7 +255,7 @@ export default function DisruptionsPanel({
                   <option value="clear">Clear</option>
                   <option value="rain">Rain</option>
                 </select>
-                {/* <p className="mt-2 text-[10px] leading-relaxed text-slate-500">
+                {/* <p className="mt-2 text-xs leading-relaxed text-slate-600">
                   Uniform 10% extra drive time is an assumption; fuel economy
                   stays at 6 mpg.
                 </p> */}
@@ -318,7 +318,7 @@ export default function DisruptionsPanel({
           Weather
         </option>
       </select>
-      {/* <p className="mt-2 text-[10px] leading-relaxed text-slate-400">
+      {/* <p className="mt-2 text-xs leading-relaxed text-slate-500">
         Multipliers affect the covered stretch and contribute to total trip
         time. Overlapping crash + lane closures use ×3.5. No time card? Uses
         free-flow truck speeds without a start time.

@@ -67,7 +67,7 @@ function KindChips({
           type="button"
           title={kind.label}
           aria-pressed={value === kind.value}
-          className={`rounded-full border px-2 py-0.5 text-[11px] ${value === kind.value ? "border-blue-300 bg-blue-50 font-medium text-blue-800" : "border-slate-200 text-slate-600 hover:bg-slate-50"}`}
+          className={`rounded-full border px-2 py-0.5 text-xs ${value === kind.value ? "border-blue-300 bg-blue-50 font-medium text-blue-800" : "border-slate-200 text-slate-600 hover:bg-slate-50"}`}
           onClick={() => {
             if (value !== kind.value) onChange(kind.value);
           }}
@@ -401,7 +401,13 @@ export default function RoutePlanner({
         option,
         route,
         ...(reference.route ? { tradeoff: decisionImpact(reference.route, route, Number(dieselPrice)), tradeoffReference: reference.label } : {}),
-        ...(!hasSimulation || allCandidates.length ? { fastestTradeoff: decisionImpact(allCandidates.find(candidate => candidate.tags.includes("Fastest"))?.route || active.route || route, route, Number(dieselPrice)) } : {}),
+        ...(!hasSimulation || allCandidates.length ? (() => {
+          const fastestRoute = allCandidates.find(candidate => candidate.tags.includes("Fastest"))?.route || active.route || route;
+          return {
+            fastestTradeoff: decisionImpact(fastestRoute, route, Number(dieselPrice)),
+            fastestHighDieselMi: fastestRoute.communityImpact?.avgDieselPct == null || route.communityImpact?.avgDieselPct == null ? null : route.communityImpact.highDieselMi - fastestRoute.communityImpact.highDieselMi,
+          };
+        })() : {}),
         ...(option === "alternate" && selectedCandidate ? { candidate: { id: selectedCandidate.id, name: selectedCandidate.name, source: selectedCandidate.source, tags: selectedCandidate.tags } } : {}),
         createdAt: initialTrip?.createdAt || now,
         updatedAt: now,
@@ -472,10 +478,10 @@ export default function RoutePlanner({
       <header className="flex shrink-0 items-center justify-between gap-3 border-b border-slate-200 bg-white px-5 py-3">
         <div className="flex items-baseline gap-3">
           <h1 className="text-lg font-semibold tracking-tight"><Link href={`/?date=${encodeURIComponent(planDate)}`}>FleetForward</Link></h1>
-          {/* <span className="text-sm text-slate-500">Route planner</span> */}
+          {/* <span className="text-sm text-slate-600">Route planner</span> */}
         </div>
         <div className="flex items-center gap-4">
-        <button type="button" aria-label="Open dispatch assistant" aria-pressed={scenarioTab === "assistant"} onClick={() => { setScenarioTab("assistant"); disruptionsDockRef.current?.scrollIntoView({ block: "nearest" }); }} className="rounded-lg p-1.5 text-slate-500 hover:bg-blue-50 hover:text-blue-700">
+        <button type="button" aria-label="Open dispatch assistant" aria-pressed={scenarioTab === "assistant"} onClick={() => { setScenarioTab("assistant"); disruptionsDockRef.current?.scrollIntoView({ block: "nearest" }); }} className="rounded-lg p-1.5 text-slate-600 hover:bg-blue-50 hover:text-blue-700">
           <svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7"><path d="M21 11.5a8.5 8.5 0 0 1-8.5 8.5H4l-2 2v-9.5A8.5 8.5 0 0 1 10.5 4h2a8.5 8.5 0 0 1 8.5 7.5Z" /><path d="M7 10h10M7 14h6" /></svg>
         </button>
         <Link
@@ -531,18 +537,18 @@ export default function RoutePlanner({
                   <span className="min-w-0 truncate font-medium text-slate-700">
                     {port.name}
                   </span>
-                  <span aria-hidden="true" className="text-slate-400">
+                  <span aria-hidden="true" className="text-slate-500">
                     →
                   </span>
                   <span className="min-w-0 flex-1 truncate font-medium text-slate-700">
                     {destination?.name}
                   </span>
                   {!!stops.length && (
-                    <span className="shrink-0 text-xs text-slate-400">
+                    <span className="shrink-0 text-xs text-slate-500">
                       {stops.length} stop{stops.length === 1 ? "" : "s"}
                     </span>
                   )}
-                  <span className="shrink-0 text-xs text-slate-500">
+                  <span className="shrink-0 text-xs text-slate-600">
                     {active.route.miles.toFixed(1)} mi
                   </span>
                 </button>
@@ -570,7 +576,7 @@ export default function RoutePlanner({
                     </button>
                   )}
                 </div>
-                <p className="mt-1 text-xs leading-relaxed text-slate-500">
+                <p className="mt-1 text-xs leading-relaxed text-slate-600">
                   Choose your destination, then add optional stops along the
                   way.
                 </p>
@@ -605,7 +611,7 @@ export default function RoutePlanner({
                         </option>
                       ))}
                     </select>
-                    <p className="mt-2 text-xs leading-relaxed text-slate-500">
+                    <p className="mt-2 text-xs leading-relaxed text-slate-600">
                       {port.address}
                     </p>
                   </section>
@@ -631,7 +637,7 @@ export default function RoutePlanner({
                             </h3>
                             <button
                               type="button"
-                              className="ml-auto text-xs text-slate-500 hover:text-red-700"
+                              className="ml-auto text-xs text-slate-600 hover:text-red-700"
                               aria-label={`Remove stop ${index + 1}`}
                               onClick={() => {
                                 clearRouteInteraction();
