@@ -63,7 +63,7 @@ export default function CandidatePicker({
           );
         })}
       </div>
-      <label title={`Default view shows ${recommendedCount} trade-off options. We hide outperformed options and merge those within 2 min and 1.0 DAC mi, keeping the faster one. Show all reveals every verified candidate. The map shows up to four by default.`} className="mt-2.5 flex cursor-pointer items-center gap-2 text-[11px] text-slate-600">
+      <label title={`Default view shows ${recommendedCount} tagged routes. Show all reveals every distinct verified candidate, including untagged options.`} className="mt-2.5 flex cursor-pointer items-center gap-2 text-[11px] text-slate-600">
         <input
           type="checkbox"
           className="accent-blue-600"

@@ -60,9 +60,9 @@ export function simulationRequest(settings: SimulationSettings): SimulationReque
 export function disruptionLabel(item: Disruption) {
   if (item.type === "departure") return `Depart Monday · ${formatDeparture(item.minutes)}`;
   if (item.type === "arrival") return `Arrive Monday by ${formatDeparture(item.minutes)}`;
-  if (item.type === "weather") return item.weather === "rain" ? "Rain · ×1.1 assumption" : "Clear weather";
+  if (item.type === "weather") return item.weather === "rain" ? "Rain" : "Clear weather";
   if (!item.freeway) return null;
-  return item.type === "closure" ? `${item.freeway} closed` : `${SLOWDOWN_PRESETS[item.kind].label} · ${item.freeway} · ×${SLOWDOWN_PRESETS[item.kind].multiplier}`;
+  return item.type === "closure" ? `${item.freeway} closed` : `${SLOWDOWN_PRESETS[item.kind].label} · ${item.freeway}`;
 }
 
 export function formatDeparture(minutes: number) {

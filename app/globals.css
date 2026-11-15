@@ -1,5 +1,4 @@
 @import "tailwindcss";
-@import "@arcgis/core/assets/esri/themes/light/main.css";
 
 :root {
   --background: #ffffff;
@@ -15,8 +14,12 @@
   from { background-position: 100% 0; }
   to { background-position: -100% 0; }
 }
+.route-explanation-caret { animation: route-explanation-blink 0.8s step-end infinite; }
+@keyframes route-explanation-blink { 50% { opacity: 0; } }
+.route-explanation-fade { animation: route-explanation-fade 200ms ease-out forwards; }
+@keyframes route-explanation-fade { to { opacity: 0; } }
 @media (prefers-reduced-motion: reduce) {
-  .route-explanation-shimmer { animation: none; }
+  .route-explanation-shimmer, .route-explanation-caret { animation: none; }
 }
 
 @theme inline {

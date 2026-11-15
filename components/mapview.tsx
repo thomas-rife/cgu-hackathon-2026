@@ -193,7 +193,7 @@ export default function MapView({ route, referenceRoute, originalPlanRoute, cand
       }
       candidates.forEach(candidate => {
         if (candidate.id === selectedCandidateId) return;
-        routesLayer.add(new Graphic({ geometry: new Polyline(candidate.route.geometry), attributes: { candidateId: candidate.id }, symbol: { type: "simple-line", color: candidateColor(candidate, true), width: 3.5 } }));
+        routesLayer.add(new Graphic({ geometry: new Polyline(candidate.route.geometry), attributes: { candidateId: candidate.id }, symbol: { type: "simple-line", color: candidate.tags.length ? candidateColor(candidate, true) : "#94a3b8", width: candidate.tags.length ? 3.5 : 2 } }));
       });
       for (const slowdown of route?.simulation?.slowdowns || []) routesLayer.add(new Graphic({ geometry: new Polyline(slowdown.geometry), symbol: { type: "simple-line", color: "#dc2626", width: 6, style: "short-dot" } }));
       for (const closure of route?.closures || []) routesLayer.add(new Graphic({ geometry: new Polyline(closure.geometry), symbol: { type: "simple-line", color: "#dc2626", width: 4, style: "solid" } }));
@@ -341,7 +341,7 @@ export default function MapView({ route, referenceRoute, originalPlanRoute, cand
                 className={`pointer-events-auto absolute z-10 w-[190px] -translate-x-1/2 -translate-y-1/2 rounded-lg border bg-white/95 px-2.5 py-2 text-left shadow-md ${selected ? "border-2" : "border-slate-200 text-slate-600"}`}
                 style={{ left: label.x, top: label.y, height: ROUTE_LABEL_HEIGHT, ...(selected ? { borderColor: candidateColor(candidate), backgroundColor: `color-mix(in srgb, ${candidateColor(candidate)} 10%, white)` } : {}) }} onClick={() => onSelectCandidate(candidate.id)}>
                 <span className="flex items-center gap-2 text-[11px]"><span className="shrink-0 whitespace-nowrap font-semibold" style={{ color: candidateColor(candidate) }}>{candidate.name}</span><span className="whitespace-nowrap text-[10px] tabular-nums">{summary}</span></span>
-                {candidate.dominated && <span className="mt-1 block text-[8px] text-slate-400">Outperformed · shown for transparency</span>}
+                {candidate.dominated && candidate.tags.length > 0 && <span className="mt-1 block text-[8px] text-slate-400">Outperformed · shown for transparency</span>}
                 {!!candidate.tags.length && <span className="mt-1 flex flex-wrap gap-1">{candidate.tags.map(tag => <span key={tag} className="rounded bg-slate-100 px-1 py-0.5 text-[8px] font-medium text-slate-600">{tag === "Lowest community burden" ? "Lowest DAC miles" : tag === "Lowest emissions" ? "Lowest CO₂" : tag}</span>)}</span>}
               </button>;
             })}

@@ -18,6 +18,7 @@ type Props = {
   settings: SimulationSettings;
   onChange: (update: Partial<SimulationSettings>) => void;
   onReset: () => void;
+  embedded?: boolean;
 };
 
 export default function DisruptionsPanel({
@@ -25,6 +26,7 @@ export default function DisruptionsPanel({
   settings,
   onChange,
   onReset,
+  embedded = false,
 }: Props) {
   const items = settings.disruptions;
   const freeways = baseline?.freeways || [];
@@ -77,15 +79,15 @@ export default function DisruptionsPanel({
   }
   return (
     <section
-      className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm"
+      className={embedded ? "" : "rounded-2xl border border-slate-200 bg-white p-4 shadow-sm"}
       aria-label="Route disruptions"
     >
-      <div className="flex items-center justify-between gap-2">
+      {!embedded && <div className="flex items-center justify-between gap-2">
         <h2 className="text-sm font-semibold">Disruptions</h2>
         <span className="rounded border border-amber-200 bg-amber-50 px-2 py-0.5 text-[10px] font-medium text-amber-800">
           Simulated
         </span>
-      </div>
+      </div>}
       {/* <p className="mt-2 text-[11px] leading-relaxed text-slate-500">Add disruptions to combine their effects in one alternate route. Fastest total truck travel time wins.</p> */}
       {!baseline && (
         <p className="mt-2 text-xs text-slate-500">
@@ -157,7 +159,7 @@ export default function DisruptionsPanel({
                         kind: kind as SlowdownKind,
                       })}
                     >
-                      {preset.label} · ×{preset.multiplier}
+                      {preset.label}
                     </option>
                   ))}
                 </select>
@@ -215,8 +217,8 @@ export default function DisruptionsPanel({
                   className="mt-2 w-full accent-blue-600"
                   type="range"
                   min="0"
-                  max="1425"
-                  step="15"
+                  max="1439"
+                  step="1"
                   value={item.minutes}
                   onChange={(event) =>
                     update(item.id, {

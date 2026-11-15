@@ -24,6 +24,7 @@ export type SavedTrip = {
   option: "baseline" | "alternate";
   candidate?: Pick<RouteCandidate, "id" | "name" | "source" | "tags">;
   tradeoff?: DecisionImpact;
+  fastestTradeoff?: DecisionImpact;
   tradeoffReference?: ReferenceLabel;
   route: RouteResult;
   draft: PlannerDraft;

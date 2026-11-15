@@ -23,6 +23,10 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       lang="en"
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
+      <head>
+        {/* Served from Esri's CDN so the 340 KB theme and its fonts stay out of the build. Keep the version in sync with @arcgis/core in package.json. */}
+        <link rel="stylesheet" href="https://js.arcgis.com/5.2.4/@arcgis/core/assets/esri/themes/light/main.css" />
+      </head>
       <body className="min-h-full flex flex-col">{children}</body>
     </html>
   );

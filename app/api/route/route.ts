@@ -45,7 +45,7 @@ export async function POST(request: Request) {
     if (stops.some((stop, index) => index > 0 && stop.longitude === stops[index - 1].longitude && stop.latitude === stops[index - 1].latitude)) throw new ServiceError("Two consecutive stops are the same location. Remove the duplicate stop.", 400);
     if (body.disruptions !== undefined && (!Array.isArray(body.disruptions) || body.disruptions.length > 8 || !body.disruptions.every(isRoadDisruption))) throw new ServiceError("Add up to eight valid freeway disruptions using the fixed presets.", 400);
     if (body.candidates !== undefined && typeof body.candidates !== "boolean") throw new ServiceError("Choose a valid route search.", 400);
-    for (const field of ["departureMinutes", "arrivalMinutes"] as const) if (body[field] !== undefined && (!Number.isInteger(body[field]) || body[field] < 0 || body[field] > 1425 || body[field] % 15 !== 0)) throw new ServiceError("Choose a time in 15-minute increments.", 400);
+    for (const field of ["departureMinutes", "arrivalMinutes"] as const) if (body[field] !== undefined && (!Number.isInteger(body[field]) || body[field] < 0 || body[field] > 1439)) throw new ServiceError("Choose a valid time from 00:00 through 23:59.", 400);
     if (body.departureMinutes !== undefined && body.arrivalMinutes !== undefined) throw new ServiceError("Choose a departure time or an arrival deadline, rather than both.", 400);
     if (body.weather !== undefined && !["clear", "rain"].includes(body.weather)) throw new ServiceError("Choose clear weather or rain.", 400);
     if (body.blockedFreeway !== undefined || body.slowdown !== undefined) throw new ServiceError("Use the disruption list to configure closures and slowdowns.", 400);

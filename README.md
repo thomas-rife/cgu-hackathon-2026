@@ -107,7 +107,9 @@ Changes use unrounded values. Higher community impacts are red; lower are green;
 missing values show dashes. Population metrics are retained in saved route data.
 
 The gear beside **Collapse** opens a settings popout with the editable diesel
-price and estimate assumptions. Price changes update both options immediately;
+price in the shared “How FleetForward works” view. Today’s Plan opens the same
+view from its top-right button. Assumptions and multipliers appear there rather
+than on disruption controls. Price changes update both options immediately;
 invalid prices disable saving until corrected. Settings and save prompts support
 Escape, close buttons, and keyboard focus handling. The **Diesel burden** toggle
 and legend sit in the map's bottom-right corner with space reserved beneath the
@@ -158,7 +160,7 @@ Distance, fuel, and CO₂ are recalculated from the resulting route geometry.
   applied together, anchored to the original baseline rather than moving after
   each reroute. The server rejects custom factors.
 - **Departure time:** historical traffic is always enabled; choose a departure in
-  15-minute increments. The alternate uses `TruckTravelTime` and ArcGIS's generic
+  whole-minute increments (00:00–23:59). The alternate uses `TruckTravelTime` and ArcGIS's generic
   Monday (January 1, 1990), interpreted in the origin's local Pacific time.
   No departure is selected initially. Adding this card starts its slider at 8 AM Monday;
   removing it returns to free-flow `TruckMinutes` speeds with no startTime.
@@ -391,7 +393,9 @@ The AI line appears directly below the comparison subtitle with an AI tooltip;
 original-plan-only mode has no AI line. In a Fastest comparison, the original
 field holds the visible Fastest reference so the explanation matches the table.
 
-Calls use temperature 0, max_tokens 80, a 15-second timeout, and no retries.
+Calls use the OpenAI SDK with `stream: true`, temperature 0, max_tokens 80,
+a 15-second timeout, and no retries. `/api/explain` forwards plain UTF-8 text
+chunks; the client appends them with a blinking caret until completion.
 Bolt's Muse/ATEM template otherwise spends this small budget in its reasoning
 channel, so Bolt uses an explicit `assistant to=user` answer prefill through
 LM Studio's [OpenAI-compatible completions endpoint](https://lmstudio.ai/docs/developer/openai-compat/completions).
@@ -399,19 +403,84 @@ The format follows the published [Muse chat template](https://huggingface.co/met
 Other model IDs use `/chat/completions`. Global LM Studio model settings are not changed.
 
 Post-processing strips markup and reasoning blocks, keeps the first sentence,
-and rejects sentences longer than 30 words, truncated generations, unknown road
+and rejects sentences longer than 30 words, unknown road
 IDs, or numbers (including written numbers) absent from the rounded input.
 Computed deltas not supplied in the input are rejected as well. The prompt asks
 for qualitative trade-offs to avoid manufacturing those numbers. Invalid/empty
-responses and connection errors return `{text:null}` and silently hide the line.
+responses silently hide the line; failed number checks fade out over 200 ms.
+Connection errors/timeouts close the stream without error text.
 
 Selection/constraint changes debounce for 400 ms and abort older requests. A
-session-memory cache keeps up to 128 successful sentences; returning to a cached
-route renders immediately. Keys include route ID, sorted disruption fingerprint,
+session-memory cache keeps up to 128 final sentences or hidden results; returning to a cached
+route renders immediately without a caret. Keys include route ID, sorted disruption fingerprint,
 departure time, and input metrics so fuel-price and reference changes invalidate
-stale sentences. Failed requests are not cached, allowing a later selection to
-retry after the model server returns. Reduced-motion settings disable the shimmer.
+stale sentences. Completed empty streams are cached as hidden. Browser transport
+failures are not cached, allowing a later selection to retry. Reduced-motion
+settings disable the shimmer and caret blink.
 
 ```bash
 npm run test:explain
+```
+
+## Local day summary
+
+Today’s Plan streams a 2–3 sentence manager summary from the local Bolt server
+when the selected date has saved trips with complete community metrics and a
+saved comparison against the fastest route. New saves capture that comparison;
+older snapshots without it leave the card hidden until edited and saved again.
+`POST /api/day-summary` receives rounded day totals, fastest-route trade-offs,
+route labels, and disruption labels. The browser caches validated summaries by
+input hash, so edits, additions, and removals regenerate them. The existing
+numeric guard hides sentences containing numbers absent from the input. An
+offline or timed-out model leaves the day summary hidden while the plan works.
+
+```bash
+npm run test:day-summary
+```
+
+## Local dispatch assistant
+
+The planner's left card has Disruptions and Assistant tabs. The header chat
+button opens Assistant. Both tabs share the same disruption state and removable
+chips. Chat and its undo stack exist only in memory for the current route;
+nothing is saved to browser storage. Send with Enter, or Shift+Enter for a newline.
+
+`POST /api/chat` uses the same server-only `LLM_BASE_URL` and `LLM_MODEL` settings
+as explanations, via the OpenAI SDK's native tool calling, temperature 0, no
+retries, and a 15-second model timeout. It rebuilds the original freeway list,
+current complete disruption state, and shown route metrics into its system
+prompt each turn. Tool requests return JSON; final replies are plain UTF-8 text
+streams. At most two tool rounds run per user message, with tools disabled for
+the final reply. No addresses or route geometry are sent to the model.
+
+The tools are `get_route_freeways`, `set_disruptions`,
+`reset_disruptions`, and `select_route`. Replacement and selection arguments are validated with Zod on the client;
+freeway numbers must resolve to an original-plan freeway. Invalid batches apply
+nothing. The same planner update action used by manual controls applies valid
+changes; the assistant waits for the normal route calculation before sending
+compact name/tag/time-delta/fuel-delta/DAC-mile results back to Bolt. Arrival-time
+changes, selecting/saving routes, and unrelated requests are outside these tools.
+
+Each successful assistant mutation inserts an Applied line and an Undo button.
+Undo restores the exact prior controls, IDs, order, and values; undo the newest
+change first to work back through the stack. Manual edits cancel an in-flight
+assistant turn. Changing the route clears chat and aborts its pending work.
+Model connection failures show “Local model offline. Use the Disruptions tab.”
+The manual controls continue to work.
+
+`select_route` translates a stated priority into a deterministic search over
+**all** current candidates, including those hidden by the default map filter.
+It can minimize disadvantaged-community miles, CO₂, time, or fuel cost, subject
+to an extra-time limit, an extra-fuel-cost limit, and an arrival deadline.
+Extra time and cost are measured against the original plan. An arrival deadline
+uses the active departure time, or the current local time when none was set.
+Ties resolve by time, then disadvantaged-community miles. A selected hidden
+candidate becomes visible and its map line, comparison, and explanation update.
+The chat shows a Selected line with Undo. If no candidate passes, the current
+selection stays put and the model receives the closest candidate's failed
+constraints. A single request can change disruptions in the first tool round
+and choose from the recalculated candidates in the second.
+
+```bash
+npm run test:assistant
 ```

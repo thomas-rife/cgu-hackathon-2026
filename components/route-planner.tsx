@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import type { CSSProperties } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -15,15 +15,20 @@ import type {
 import { DEFAULT_DIESEL_PRICE } from "@/lib/route-metrics";
 import MapView from "./mapview";
 import PlacePicker from "./place-picker";
+import RouteCardRow from "./route-card-row";
 import RouteComparison from "./route-comparison";
-import DisruptionsPanel from "./disruptions-panel";
+import DisruptionWorkspace from "./disruption-workspace";
+import { assistantRoutes } from "@/lib/assistant-tools";
+import { chooseAssistantRoute } from "@/lib/assistant-selection";
+import type { SelectRouteArgs, SelectRouteResult } from "@/lib/assistant-selection";
+import type { AssistantRouteResult } from "@/lib/assistant-tools";
 import {
   DEFAULT_SIMULATION,
   disruptionLabel,
   simulationRequest,
   uniqueDisruptions,
 } from "@/lib/simulation";
-import type { SimulationRequest, SimulationSettings } from "@/lib/simulation";
+import type { Disruption, SimulationRequest, SimulationSettings } from "@/lib/simulation";
 
 import { saveTrip, validPlanDate } from "@/lib/saved-trips";
 import type { SavedTrip, StopDraft } from "@/lib/saved-trips";
@@ -31,6 +36,48 @@ import { decisionImpact } from "@/lib/decision-impact";
 import { comparisonReference } from "@/lib/comparison-reference";
 import { useComparisonDisclosure } from "@/lib/use-comparison-disclosure";
 const EMPTY_CANDIDATES: RouteCandidate[] = [];
+
+const KIND_CHIP_LABELS: Record<string, string> = {
+  warehouse: "Warehouse",
+  yard: "Yard",
+  fuel: "Fuel",
+  address: "Address",
+};
+const STOP_KINDS = PLACE_KINDS;
+const DESTINATION_KINDS = PLACE_KINDS.filter(
+  (kind) => kind.value === "warehouse" || kind.value === "address",
+);
+
+function KindChips({
+  label,
+  kinds,
+  value,
+  onChange,
+}: {
+  label: string;
+  kinds: typeof PLACE_KINDS;
+  value: PlaceKind;
+  onChange: (kind: PlaceKind) => void;
+}) {
+  return (
+    <div role="group" aria-label={label} className="mb-3 flex flex-wrap gap-1">
+      {kinds.map((kind) => (
+        <button
+          key={kind.value}
+          type="button"
+          title={kind.label}
+          aria-pressed={value === kind.value}
+          className={`rounded-full border px-2 py-0.5 text-[11px] ${value === kind.value ? "border-blue-300 bg-blue-50 font-medium text-blue-800" : "border-slate-200 text-slate-600 hover:bg-slate-50"}`}
+          onClick={() => {
+            if (value !== kind.value) onChange(kind.value);
+          }}
+        >
+          {KIND_CHIP_LABELS[kind.value] || kind.label}
+        </button>
+      ))}
+    </div>
+  );
+}
 
 function useSolvedRoute(
   stops: RouteLocation[] | null,
@@ -114,10 +161,14 @@ export default function RoutePlanner({
     id: initialTrip?.candidate?.id || "",
   }));
   const [candidateDisclosure, setCandidateDisclosure] = useState<{ key: string; all: boolean } | null>(null);
+  const [assistantVisibleId, setAssistantVisibleId] = useState<{ key: string; id: string } | null>(null);
   const [focus, setFocus] = useState<MapFocus | null>(null);
-  const [routeEditing, setRouteEditing] = useState(false);
+  // A new trip stays in the editor until the user presses Done; a saved trip opens collapsed.
+  const [routeEditing, setRouteEditing] = useState(!initialTrip);
   const [fitRequest, setFitRequest] = useState(0);
   const [comparisonExpanded, setComparisonExpanded] = useComparisonDisclosure();
+  const [scenarioTab, setScenarioTab] = useState<"disruptions" | "assistant">("disruptions");
+  const assistantPending = useRef<{ key: string; baselineKey: string; finish: (result: AssistantRouteResult) => void; cancel: () => void } | null>(null);
   const routeCardRef = useRef<HTMLElement | null>(null);
   const disruptionsDockRef = useRef<HTMLDivElement | null>(null);
   const comparisonDockRef = useRef<HTMLDivElement | null>(null);
@@ -190,8 +241,8 @@ export default function RoutePlanner({
     ? allCandidates.find(candidate => candidate.id === initialTrip.candidate!.id) || allCandidates.find(candidate => candidate.source === initialTrip.candidate!.source
       && Math.abs(candidate.route.miles - initialTrip.route.miles) < 0.5
       && candidate.route.freeways.map(f => f.id).sort().join() === initialTrip.route.freeways.map(f => f.id).sort().join()) : undefined;
-  const showAllCandidates = candidateDisclosure?.key === candidateKey ? candidateDisclosure.all : !!restoredCandidate && !recommended.some(candidate => candidate.id === restoredCandidate.id);
-  const candidates = useMemo(() => showAllCandidates ? allCandidates : recommended, [showAllCandidates, allCandidates, recommended]);
+  const showAllCandidates = candidateDisclosure?.key === candidateKey ? candidateDisclosure.all : false;
+  const candidates = useMemo(() => showAllCandidates ? allCandidates : recommended.concat(allCandidates.filter(candidate => candidate.id === assistantVisibleId?.id && assistantVisibleId.key === candidateKey && !recommended.some(visible => visible.id === candidate.id))), [showAllCandidates, allCandidates, recommended, assistantVisibleId, candidateKey]);
   const selectedCandidate = candidates.find(candidate => candidateSelection.key === candidateKey && candidate.id === candidateSelection.id) || candidates.find(candidate => candidate.id === restoredCandidate?.id) || candidates[0] || null;
   const selectedRoute = selectedCandidate?.route || null;
   const reference = comparisonReference(active.route, allCandidates, simulation);
@@ -202,6 +253,30 @@ export default function RoutePlanner({
     setCandidateSelection({ key: candidateKey, id });
     setCandidateDisclosure({ key: candidateKey, all: showAllCandidates });
     setFocus(null);
+  }
+  function selectAssistantRoute(args: SelectRouteArgs): { result: SelectRouteResult; previous: { key: string; id: string } | null } {
+    if (!active.route || alternate.loading) throw new Error("Routes are still calculating.");
+    const time = settings.disruptions.find(item => item.type === "departure" || item.type === "arrival");
+    const now = new Date();
+    const currentMinutes = now.getHours() * 60 + now.getMinutes();
+    const departure = time?.type === "departure" ? time.minutes : time?.type === "arrival" ? time.minutes - active.route.minutes : currentMinutes;
+    const choice = chooseAssistantRoute(args, active.route, hasSimulation ? allCandidates : [{ id: "original", name: "Original plan", route: active.route, tags: ["Fastest"], source: "fastest" }], price, departure);
+    const previous = candidateSelection.key === candidateKey && candidateSelection.id ? candidateSelection : null;
+    if (choice.candidate && choice.candidate.id !== "original") {
+      if (!candidates.some(candidate => candidate.id === choice.candidate!.id)) setAssistantVisibleId({ key: candidateKey, id: choice.candidate.id });
+      setComparisonExpanded(true);
+      setCandidateSelection({ key: candidateKey, id: choice.candidate.id });
+      setFocus(null);
+    }
+    return { result: choice.result, previous };
+  }
+  function undoAssistantSelection(previous: { key: string; id: string } | null) {
+    if (previous?.key === candidateKey) {
+      if (!recommended.some(candidate => candidate.id === previous.id)) setAssistantVisibleId(previous);
+      setCandidateSelection(previous);
+      setComparisonExpanded(true);
+    }
+    else setCandidateSelection({ key: "", id: "" });
   }
   const routeCollapsed = !!active.route && !routeEditing;
   const scenarioLabels = [
@@ -226,6 +301,43 @@ export default function RoutePlanner({
       ? focus
       : null;
   const incomplete = stops.some((stop) => !stop.location);
+  const price = Number(dieselPrice) > 0 && Number.isFinite(Number(dieselPrice)) ? Number(dieselPrice) : null;
+
+  useEffect(() => {
+    const pending = assistantPending.current;
+    if (!pending) return;
+    if (pending.baselineKey !== baselineKey) { pending.cancel(); return; }
+    if (pending.key !== candidateKey || !active.route || (hasSimulation && alternate.loading)) return;
+    pending.finish({
+      routes: alternate.error ? [] : assistantRoutes(active.route, hasSimulation ? allCandidates : [], price),
+      ...(alternate.error ? { routingError: alternate.error } : {}),
+    });
+  }, [baselineKey, candidateKey, active.route, hasSimulation, alternate.loading, alternate.error, allCandidates, price]);
+
+  function applyAssistantDisruptions(items: Disruption[], signal: AbortSignal): Promise<AssistantRouteResult> {
+    signal.throwIfAborted();
+    if (!active.route) return Promise.reject(new Error("Set a route first."));
+    const disruptions = uniqueDisruptions(items);
+    const next = simulationRequest({ disruptions });
+    const key = `${baselineKey}|${JSON.stringify(next)}`;
+    // Every assistant mutation enters through the same action as manual edits.
+    updateSimulation({ disruptions });
+    if (!Object.keys(next).length) return Promise.resolve({ routes: assistantRoutes(active.route, [], price) });
+    if (key === candidateKey && alternate.route && !alternate.loading) return Promise.resolve({ routes: assistantRoutes(active.route, allCandidates, price) });
+    assistantPending.current?.cancel();
+    return new Promise((resolve, reject) => {
+      const cleanup = () => {
+        clearTimeout(timer);
+        signal.removeEventListener("abort", cancel);
+        if (assistantPending.current?.key === key) assistantPending.current = null;
+      };
+      const cancel = () => { cleanup(); reject(new DOMException("Scenario changed", "AbortError")); };
+      const finish = (result: AssistantRouteResult) => { cleanup(); resolve(result); };
+      const timer = setTimeout(() => finish({ routes: [], routingError: "Scenario applied; routing is still calculating. No new route metrics available yet." }), 90000);
+      assistantPending.current = { key, baselineKey, finish, cancel };
+      signal.addEventListener("abort", cancel, { once: true });
+    });
+  }
 
   function focusLocation(location: RouteLocation) {
     setFocus((previous) => ({
@@ -289,6 +401,7 @@ export default function RoutePlanner({
         option,
         route,
         ...(reference.route ? { tradeoff: decisionImpact(reference.route, route, Number(dieselPrice)), tradeoffReference: reference.label } : {}),
+        ...(!hasSimulation || allCandidates.length ? { fastestTradeoff: decisionImpact(allCandidates.find(candidate => candidate.tags.includes("Fastest"))?.route || active.route || route, route, Number(dieselPrice)) } : {}),
         ...(option === "alternate" && selectedCandidate ? { candidate: { id: selectedCandidate.id, name: selectedCandidate.name, source: selectedCandidate.source, tags: selectedCandidate.tags } } : {}),
         createdAt: initialTrip?.createdAt || now,
         updatedAt: now,
@@ -335,16 +448,20 @@ export default function RoutePlanner({
 
   function addButton(index: number) {
     return (
-      <div className="flex w-16 shrink-0 items-center justify-center">
+      <div className="relative flex w-8 shrink-0 items-center justify-center">
+        <span
+          aria-hidden="true"
+          className="absolute inset-x-0 top-1/2 h-px bg-slate-300"
+        />
         <button
           type="button"
-          className="rounded-full border border-dashed border-slate-300 bg-white px-4 py-1.5 text-xs font-medium text-slate-600 hover:border-blue-500 hover:text-blue-700 disabled:cursor-not-allowed disabled:opacity-40"
+          className="relative grid size-6 place-items-center rounded-full border border-slate-300 bg-white text-sm leading-none text-slate-600 hover:border-blue-500 hover:text-blue-700 disabled:cursor-not-allowed disabled:opacity-40"
           disabled={!direct.route || stops.length >= 8}
           aria-label={`Add stop ${index + 1}`}
+          title="Add a stop here"
           onClick={() => addStop(index)}
         >
-          <span aria-hidden="true">＋</span>
-          <span className="block">Add stop</span>
+          +
         </button>
       </div>
     );
@@ -357,12 +474,17 @@ export default function RoutePlanner({
           <h1 className="text-lg font-semibold tracking-tight"><Link href={`/?date=${encodeURIComponent(planDate)}`}>FleetForward</Link></h1>
           {/* <span className="text-sm text-slate-500">Route planner</span> */}
         </div>
+        <div className="flex items-center gap-4">
+        <button type="button" aria-label="Open dispatch assistant" aria-pressed={scenarioTab === "assistant"} onClick={() => { setScenarioTab("assistant"); disruptionsDockRef.current?.scrollIntoView({ block: "nearest" }); }} className="rounded-lg p-1.5 text-slate-500 hover:bg-blue-50 hover:text-blue-700">
+          <svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7"><path d="M21 11.5a8.5 8.5 0 0 1-8.5 8.5H4l-2 2v-9.5A8.5 8.5 0 0 1 10.5 4h2a8.5 8.5 0 0 1 8.5 7.5Z" /><path d="M7 10h10M7 14h6" /></svg>
+        </button>
         <Link
           href={`/?date=${encodeURIComponent(planDate)}`}
           className="shrink-0 text-sm font-medium text-blue-700 hover:underline"
         >
           Today’s Plan
         </Link>
+        </div>
       </header>
       <div
         className="relative min-h-0 flex-1 overflow-hidden"
@@ -395,7 +517,7 @@ export default function RoutePlanner({
           <section
             ref={routeCardRef}
             aria-label="Route"
-            className={`pointer-events-auto w-full min-w-0 shrink-0 rounded-2xl border border-slate-200 bg-white shadow-lg shadow-slate-900/5 ${routeCollapsed ? "p-3" : "max-h-[55dvh] overflow-y-auto p-4"}`}
+            className={`pointer-events-auto ${routeCollapsed ? "w-full" : "w-fit max-w-full"} min-w-0 shrink-0 rounded-2xl border border-slate-200 bg-white shadow-lg shadow-slate-900/5 ${routeCollapsed ? "p-3" : "max-h-[55dvh] overflow-y-auto p-4"}`}
           >
             {routeCollapsed && active.route ? (
               <div className="flex items-center gap-2">
@@ -453,12 +575,9 @@ export default function RoutePlanner({
                   way.
                 </p>
 
-                <div
-                  className="mt-3 flex items-stretch gap-3 overflow-x-auto pb-2"
-                  aria-label="Route locations"
-                >
+                <RouteCardRow itemCount={stops.length}>
                   <section
-                    className="w-[230px] shrink-0 rounded-xl border border-slate-200 p-4"
+                    className="w-[280px] shrink-0 snap-start rounded-xl border border-slate-200 p-4"
                     aria-label="Origin"
                   >
                     <div className="mb-3 flex items-center gap-2">
@@ -467,126 +586,127 @@ export default function RoutePlanner({
                       </span>
                       <h3 className="text-sm font-semibold">Starting port</h3>
                     </div>
-                    <fieldset className="space-y-1.5">
-                      <legend className="sr-only">Starting port</legend>
-                      {PORTS.map(item => <label key={item.id} className={`flex cursor-pointer items-center gap-2 rounded-lg border px-2.5 py-2.5 text-xs ${portId === item.id ? "border-blue-300 bg-blue-50 font-medium text-blue-800" : "border-slate-200 text-slate-600 hover:bg-slate-50"}`}>
-                        <input type="radio" name="starting-port" value={item.id} checked={portId === item.id} className="accent-blue-600" onChange={() => { clearRouteInteraction(); setPortId(item.id); }} />
-                        {item.name.replace("Port of ", "")}
-                      </label>)}
-                    </fieldset>
-                    {/* <p className="mt-2 text-xs leading-relaxed text-slate-500">
-                      Representative port access point. Specific terminal gates
-                      come later.
-                    </p> */}
+                    <label className="sr-only" htmlFor="starting-port">
+                      Starting port
+                    </label>
+                    <select
+                      id="starting-port"
+                      className="route-input"
+                      value={portId}
+                      onChange={(event) => {
+                        clearRouteInteraction();
+                        setPortId(event.target.value);
+                      }}
+                    >
+                      {PORTS.map((item, index) => (
+                        <option key={item.id} value={item.id}>
+                          {item.name.replace("Port of ", "")}
+                          {index === 0 ? " (default)" : ""}
+                        </option>
+                      ))}
+                    </select>
+                    <p className="mt-2 text-xs leading-relaxed text-slate-500">
+                      {port.address}
+                    </p>
                   </section>
 
                   {addButton(0)}
-                  {stops.map((stop, index) => (
-                    <div
-                      key={stop.id}
-                      className="flex shrink-0 items-stretch gap-3"
-                    >
-                      <section
-                        className="w-[280px] shrink-0 rounded-xl border border-slate-200 p-4"
-                        aria-label={`Optional stop ${index + 1}`}
-                      >
-                        <div className="mb-3 flex items-center gap-2">
-                          <span className="grid size-6 place-items-center rounded-full bg-amber-100 text-xs font-bold text-amber-900">
-                            {index + 2}
-                          </span>
-                          <h3 className="text-sm font-semibold">
-                            Stop {index + 1}
-                          </h3>
-                          <button
-                            type="button"
-                            className="ml-auto text-xs text-slate-500 hover:text-red-700"
-                            aria-label={`Remove stop ${index + 1}`}
-                            onClick={() => {
-                              clearRouteInteraction();
-                              setStops((previous) =>
-                                previous.filter((item) => item.id !== stop.id),
-                              );
-                            }}
+                  {stops.map((stop, index) => {
+                    const stopArea =
+                      DESTINATION_AREAS.find(
+                        (area) => area.id === stop.areaId,
+                      ) || area;
+                    return (
+                      <Fragment key={stop.id}>
+                        <section
+                          className="w-[280px] shrink-0 snap-start rounded-xl border border-slate-200 p-4"
+                          aria-label={`Optional stop ${index + 1}`}
+                        >
+                          <div className="mb-3 flex items-center gap-2">
+                            <span className="grid size-6 place-items-center rounded-full bg-amber-100 text-xs font-bold text-amber-900">
+                              {index + 2}
+                            </span>
+                            <h3 className="text-sm font-semibold">
+                              Stop {index + 1}
+                            </h3>
+                            <button
+                              type="button"
+                              className="ml-auto text-xs text-slate-500 hover:text-red-700"
+                              aria-label={`Remove stop ${index + 1}`}
+                              onClick={() => {
+                                clearRouteInteraction();
+                                setStops((previous) =>
+                                  previous.filter(
+                                    (item) => item.id !== stop.id,
+                                  ),
+                                );
+                              }}
+                            >
+                              Remove
+                            </button>
+                          </div>
+                          <KindChips
+                            label={`Stop ${index + 1} type`}
+                            kinds={STOP_KINDS}
+                            value={stop.kind}
+                            onChange={(kind) =>
+                              updateStop(stop.id, { kind, location: null })
+                            }
+                          />
+                          <label
+                            className="mb-1 block text-xs font-medium text-slate-600"
+                            htmlFor={`area-${stop.id}`}
                           >
-                            Remove
-                          </button>
-                        </div>
-                        <label className="sr-only" htmlFor={`kind-${stop.id}`}>
-                          Stop {index + 1} type
-                        </label>
-                        <select
-                          id={`kind-${stop.id}`}
-                          className="route-input mb-3"
-                          value={stop.kind}
-                          onChange={(event) =>
-                            updateStop(stop.id, {
-                              kind: event.target.value as PlaceKind,
-                              location: null,
-                            })
-                          }
-                        >
-                          {PLACE_KINDS.map((kind) => (
-                            <option key={kind.value} value={kind.value}>
-                              {kind.label}
-                            </option>
-                          ))}
-                        </select>
-                        <label
-                          className="mb-1 block text-xs font-medium text-slate-600"
-                          htmlFor={`area-${stop.id}`}
-                        >
-                          Search area
-                        </label>
-                        <select
-                          id={`area-${stop.id}`}
-                          aria-label={`Stop ${index + 1} search area`}
-                          className="route-input mb-3"
-                          value={stop.areaId}
-                          onChange={(event) =>
-                            updateStop(stop.id, {
-                              areaId: event.target.value,
-                              location: null,
-                            })
-                          }
-                        >
-                          {DESTINATION_AREAS.map((area) => (
-                            <option key={area.id} value={area.id}>
-                              {area.name}
-                            </option>
-                          ))}
-                        </select>
-                        <PlacePicker
-                          key={`${stop.id}-${stop.kind}-${stop.areaId}`}
-                          label={`Stop ${index + 1}`}
-                          kind={stop.kind}
-                          near={
-                            DESTINATION_AREAS.find(
-                              (area) => area.id === stop.areaId,
-                            ) || area
-                          }
-                          value={stop.location}
-                          onChange={(location) =>
-                            updateStop(stop.id, { location })
-                          }
-                          disabled={!direct.route}
-                          onFocusLocation={focusLocation}
-                          excludeIds={[
-                            port.id,
-                            ...(destination ? [destination.id] : []),
-                            ...stops.flatMap((other) =>
-                              other.id !== stop.id && other.location
-                                ? [other.location.id]
-                                : [],
-                            ),
-                          ]}
-                        />
-                      </section>
-                      {addButton(index + 1)}
-                    </div>
-                  ))}
+                            Area
+                          </label>
+                          <select
+                            id={`area-${stop.id}`}
+                            aria-label={`Stop ${index + 1} area`}
+                            className="route-input mb-3"
+                            value={stop.areaId}
+                            onChange={(event) =>
+                              updateStop(stop.id, {
+                                areaId: event.target.value,
+                                location: null,
+                              })
+                            }
+                          >
+                            {DESTINATION_AREAS.map((area) => (
+                              <option key={area.id} value={area.id}>
+                                {area.name}
+                              </option>
+                            ))}
+                          </select>
+                          <PlacePicker
+                            key={`${stop.id}-${stop.kind}-${stop.areaId}`}
+                            label={`Stop ${index + 1}`}
+                            kind={stop.kind}
+                            near={stopArea}
+                            areaName={stopArea.name}
+                            value={stop.location}
+                            onChange={(location) =>
+                              updateStop(stop.id, { location })
+                            }
+                            disabled={!direct.route}
+                            onFocusLocation={focusLocation}
+                            excludeIds={[
+                              port.id,
+                              ...(destination ? [destination.id] : []),
+                              ...stops.flatMap((other) =>
+                                other.id !== stop.id && other.location
+                                  ? [other.location.id]
+                                  : [],
+                              ),
+                            ]}
+                          />
+                        </section>
+                        {addButton(index + 1)}
+                      </Fragment>
+                    );
+                  })}
 
                   <section
-                    className="w-[320px] shrink-0 rounded-xl border border-slate-200 p-4"
+                    className="w-[280px] shrink-0 snap-start rounded-xl border border-slate-200 p-4"
                     aria-label="Destination"
                   >
                     <div className="mb-3 flex items-center gap-2">
@@ -597,11 +717,20 @@ export default function RoutePlanner({
                         Delivery destination
                       </h3>
                     </div>
+                    <KindChips
+                      label="Destination type"
+                      kinds={DESTINATION_KINDS}
+                      value={destinationKind}
+                      onChange={(kind) => {
+                        setDestinationKind(kind);
+                        updateDestination(null);
+                      }}
+                    />
                     <label
                       className="mb-1 block text-xs font-medium text-slate-600"
                       htmlFor="destination-area"
                     >
-                      Search area
+                      Area
                     </label>
                     <select
                       id="destination-area"
@@ -618,36 +747,18 @@ export default function RoutePlanner({
                         </option>
                       ))}
                     </select>
-                    <label className="sr-only" htmlFor="destination-kind">
-                      Destination type
-                    </label>
-                    <select
-                      id="destination-kind"
-                      className="route-input mb-3"
-                      value={destinationKind}
-                      onChange={(event) => {
-                        setDestinationKind(event.target.value as PlaceKind);
-                        updateDestination(null);
-                      }}
-                    >
-                      <option value="warehouse">Warehouse</option>
-                      <option value="address">Custom address</option>
-                    </select>
                     <PlacePicker
                       key={`${areaId}-${destinationKind}`}
                       label="Destination"
                       kind={destinationKind}
                       near={area}
+                      areaName={area.name}
                       value={destination}
                       onChange={updateDestination}
                       onFocusLocation={focusLocation}
                     />
                   </section>
-                </div>
-                {/* <p className="mt-2 text-[10px] text-slate-400">
-                  Warehouse names are fictional demo aliases; addresses and
-                  routes are real.
-                </p> */}
+                </RouteCardRow>
               </>
             )}
           </section>
@@ -656,14 +767,22 @@ export default function RoutePlanner({
             ref={disruptionsDockRef}
             className="pointer-events-auto min-h-0 w-[350px] max-w-full overflow-y-auto rounded-2xl"
           >
-            <DisruptionsPanel
+            <DisruptionWorkspace
+              tab={scenarioTab}
+              onTabChange={setScenarioTab}
+              routeKey={baselineKey}
+              assistant={{
+                freeways: active.route?.freeways.map(freeway => freeway.id) || [],
+                routes: active.route ? assistantRoutes(active.route, hasSimulation ? allCandidates : [], price) : [],
+                ready: !!active.route && !active.loading && !alternate.loading,
+                onApply: applyAssistantDisruptions,
+                onSelect: selectAssistantRoute,
+                onUndoSelection: undoAssistantSelection,
+              }}
               baseline={active.route}
               settings={settings}
               onChange={updateSimulation}
-              onReset={() => {
-                setScenario({ baselineKey, settings: DEFAULT_SIMULATION });
-                setFocus(null);
-              }}
+              onReset={() => updateSimulation({ disruptions: [] })}
             />
           </div>
         </div>
@@ -684,7 +803,14 @@ export default function RoutePlanner({
             allCandidateCount={allCandidates.length}
             recommendedCandidateCount={recommended.length}
             showAllCandidates={showAllCandidates}
-            onShowAllCandidatesChange={all => setCandidateDisclosure({ key: candidateKey, all })}
+            onShowAllCandidatesChange={all => {
+              setCandidateDisclosure({ key: candidateKey, all });
+              if (!all) {
+                setAssistantVisibleId(null);
+                const fastest = recommended.find(candidate => candidate.tags.includes("Fastest")) || recommended[0];
+                if (fastest) setCandidateSelection({ key: candidateKey, id: fastest.id });
+              }
+            }}
             selectedCandidateId={selectedCandidate?.id || null}
             onSelectCandidate={selectCandidate}
             candidateNotice={alternate.route?.candidateNotice}
