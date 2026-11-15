@@ -188,37 +188,42 @@ export default function TodaysPlan() {
         )}
         {ready && !error && <DaySummaryCard trips={dayTrips} />}
         <section aria-label="Day impact totals">
-          <p className="mb-2 text-xs text-slate-600">
+          <p className="mb-2 text-sm text-slate-700">
             Change vs. the fastest available route
           </p>
           <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
             {metrics.map((metric) => (
               <div
                 key={metric.label}
+                title={metric.note}
                 className="rounded-xl border border-slate-200 bg-white p-4"
               >
-                <p className="text-xs font-semibold tracking-wide text-slate-500 uppercase">
+                <p className="text-xs font-semibold tracking-wide text-slate-600 uppercase">
                   {metric.who}
                 </p>
-                <p className="mt-1 text-xs font-medium text-slate-600">
+                <p className="mt-1 text-sm font-medium text-slate-800">
                   {metric.label}
                 </p>
                 <p className="mt-3 text-2xl font-semibold tracking-tight tabular-nums">
                   {ready && !error ? metric.value : "—"}
                 </p>
                 <p
-                  className={`mt-1 text-xs font-medium tabular-nums ${ready && !error ? impactColor(metric.delta, metric.unit) : "text-slate-500"}`}
+                  className={`mt-1 text-sm font-medium tabular-nums ${ready && !error ? impactColor(metric.delta, metric.unit) : "text-slate-600"}`}
                 >
                   {ready && !error && metric.delta !== null
                     ? `${impactValue(metric.delta, metric.unit)} vs fastest`
                     : dayTrips.length && ready && !error
-                      ? "Change unavailable · re-save trips to compare"
+                      ? "Change unavailable"
                       : "—"}
                 </p>
-                <p className="mt-2 text-xs text-slate-500">{metric.note}</p>
               </div>
             ))}
           </div>
+          <p className="mt-2 text-xs text-slate-600">
+            Estimates. Drive time excludes loading and breaks; fuel uses each
+            trip’s saved diesel price; community miles count tracts at or above
+            the 75th percentile.
+          </p>
         </section>
         {!!dayTrips.length && (
           <section
@@ -226,7 +231,7 @@ export default function TodaysPlan() {
             className="rounded-2xl border border-slate-200 bg-white p-4"
           >
             <div className="mb-3 flex items-baseline justify-between gap-3">
-              <h2 className="text-sm font-semibold">Routes at a glance</h2>
+              <h2 className="text-base font-semibold">Routes at a glance</h2>
             </div>
             <PlanMap trips={dayTrips} />
           </section>
@@ -236,8 +241,10 @@ export default function TodaysPlan() {
           className="overflow-hidden rounded-2xl border border-slate-200 bg-white"
         >
           <div className="flex items-baseline justify-between gap-3 border-b border-slate-100 px-5 py-4">
-            <h2 className="text-sm font-semibold">Saved trips</h2>
-            <span className="text-xs text-slate-500">Sorted by departure</span>
+            <h2 className="text-base font-semibold">Saved trips</h2>
+            <span className="text-sm text-slate-600">
+              Sorted by departure · times are estimates
+            </span>
           </div>
           {!ready ? (
             <p role="status" className="p-8 text-sm text-slate-600">
@@ -267,6 +274,24 @@ export default function TodaysPlan() {
               {dayTrips.map((trip, index) => {
                 const first = trip.route.stops[0],
                   last = trip.route.stops[trip.route.stops.length - 1];
+                const tags = trip.candidate?.tags || [];
+                const choice =
+                  trip.option !== "alternate"
+                    ? "Original plan"
+                    : tags.includes("Lowest community burden")
+                      ? "Lowest DAC miles"
+                      : tags.includes("Lowest emissions")
+                        ? "Lowest emissions"
+                        : tags.includes("Fastest")
+                          ? "Fastest"
+                          : tags.includes("Balanced")
+                            ? "Balanced"
+                            : trip.candidate?.name || "Alternate route";
+                const matchesFastest =
+                  !!trip.fastestTradeoff &&
+                  isNoChange(trip.fastestTradeoff.fuel, "$") &&
+                  isNoChange(trip.fastestTradeoff.minutes, "min") &&
+                  isNoChange(trip.fastestTradeoff.dacMi, "mi");
                 return (
                   <li
                     key={trip.id}
@@ -292,11 +317,15 @@ export default function TodaysPlan() {
                             {last.name}
                           </h3>
                         </div>
-                        <p className="mt-1.5 pl-4.5 text-xs text-slate-600">
+                        <p className="mt-1.5 pl-4.5 text-sm text-slate-700">
                           {trip.route.stops.length > 2
                             ? `${trip.route.stops.length - 2} stop${trip.route.stops.length > 3 ? "s" : ""} · `
                             : ""}
-                          {trip.route.minutes.toFixed(0)} min estimated driving
+                          {trip.route.minutes.toFixed(0)} min driving ·{" "}
+                          {choice}
+                          {matchesFastest && choice !== "Fastest"
+                            ? " · same as the fastest route"
+                            : ""}
                         </p>
                       </div>
                       <div className="text-sm tabular-nums">
@@ -314,13 +343,13 @@ export default function TodaysPlan() {
                             Departure not set
                           </span>
                         )}
-                        <p className="mt-1 text-right text-xs text-slate-500">
-                          {trip.departureMinutes === null
-                            ? "Add a time in Edit"
-                            : "Estimated schedule"}
-                        </p>
+                        {trip.departureMinutes === null && (
+                          <p className="mt-1 text-right text-xs text-slate-600">
+                            Add a time in Edit
+                          </p>
+                        )}
                       </div>
-                      <div className="flex gap-3 text-xs">
+                      <div className="flex gap-3 text-sm">
                         <Link
                           className="font-medium text-blue-700 hover:underline"
                           href={`/planner?trip=${encodeURIComponent(trip.id)}`}
@@ -338,47 +367,13 @@ export default function TodaysPlan() {
                         </button>
                       </div>
                     </div>
-                    {trip.fastestTradeoff &&
-                    isNoChange(trip.fastestTradeoff.fuel, "$") &&
-                    isNoChange(trip.fastestTradeoff.minutes, "min") &&
-                    isNoChange(trip.fastestTradeoff.dacMi, "mi") ? (
-                      <p className="mt-3 text-xs text-slate-600">
-                        This is the fastest available route
-                      </p>
-                    ) : (
+                    {!matchesFastest && (
                       <WhosAffected
                         compact
                         referenceLabel="the fastest available route"
                         impact={trip.fastestTradeoff ?? null}
                       />
                     )}
-                    <div
-                      aria-label="Trip indicators"
-                      className="mt-3 flex flex-wrap gap-1.5"
-                    >
-                      {[
-                        trip.option === "alternate"
-                          ? trip.candidate?.tags.includes(
-                              "Lowest community burden",
-                            )
-                            ? "Lowest DAC miles"
-                            : trip.candidate?.tags.includes("Lowest emissions")
-                              ? "Lowest emissions"
-                              : trip.candidate?.tags.includes("Fastest")
-                                ? "Fastest"
-                                : trip.candidate?.tags.includes("Balanced")
-                                  ? "Balanced"
-                                  : trip.candidate?.name || "Alternate route"
-                          : "Original plan",
-                      ].map((indicator, i) => (
-                        <span
-                          key={`${i}-${indicator}`}
-                          className="rounded-md border border-slate-200 bg-slate-50 px-2 py-1 text-xs text-slate-600"
-                        >
-                          {indicator}
-                        </span>
-                      ))}
-                    </div>
                   </li>
                 );
               })}

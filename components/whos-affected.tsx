@@ -34,7 +34,7 @@ export default function WhosAffected({
     return (
       <p
         aria-label={`Decision trade-off from ${reference}`}
-        className="mt-3 flex flex-wrap gap-x-1 text-xs tabular-nums"
+        className="mt-2 flex flex-wrap gap-x-1.5 pl-4.5 text-sm tabular-nums"
       >
         {impact ? (
           <>
