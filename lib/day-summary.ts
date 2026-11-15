@@ -43,8 +43,9 @@ export function sanitizeDaySummary(raw: unknown, input: DaySummaryInput): string
   if (!/[a-z]/i.test(text) || text.split(/\s+/).length > 100) return null;
   const allowed = new Set<number>();
   function collect(value: unknown) {
-    // Savings are stored as negative deltas but written as "saves $10.37".
-    if (typeof value === "number") { allowed.add(value); allowed.add(Math.abs(value)); }
+    // Savings are stored as negative deltas but written as "saves $10.37", and the model
+    // often rounds ($10.73 becomes "$11"). Accept the positive form and honest roundings.
+    if (typeof value === "number") for (const places of [0, 1, 2]) { const rounded = Number(Math.abs(value).toFixed(places)); allowed.add(rounded); allowed.add(-rounded); allowed.add(value); }
     else if (typeof value === "string") numericClaims(value).forEach(number => allowed.add(number));
     else if (Array.isArray(value)) value.forEach(collect);
     else if (value && typeof value === "object") Object.values(value).forEach(collect);
