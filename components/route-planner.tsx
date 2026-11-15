@@ -1,6 +1,6 @@
 "use client";
 
-import { Fragment, useEffect, useMemo, useRef, useState } from "react";
+import { Fragment, useEffect, useMemo, useRef, useState, useTransition } from "react";
 import type { CSSProperties } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -133,9 +133,11 @@ function useSolvedRoute(
 export default function RoutePlanner({
   initialTrip,
   initialDate,
+  onSaved,
 }: {
   initialTrip?: SavedTrip;
   initialDate: string;
+  onSaved: () => void;
 }) {
   const router = useRouter();
   const draft = initialTrip?.draft;
@@ -155,7 +157,8 @@ export default function RoutePlanner({
   );
   const planDate = initialTrip?.planDate || initialDate;
   const [saveError, setSaveError] = useState("");
-  const [saving, setSaving] = useState(false);
+  // "Saving" lasts exactly as long as the navigation back to Today's Plan, so it can never get stuck.
+  const [saving, startSaveNavigation] = useTransition();
   const [candidateSelection, setCandidateSelection] = useState(() => ({
     key: initialTrip ? `${JSON.stringify(initialTrip.route.stops.map(stop => [stop.id, stop.longitude, stop.latitude]))}|${JSON.stringify(simulationRequest(draft?.settings || DEFAULT_SIMULATION))}` : "",
     id: initialTrip?.candidate?.id || "",
@@ -427,8 +430,11 @@ export default function RoutePlanner({
           settings,
         },
       });
-      setSaving(true);
-      router.push(`/?date=${encodeURIComponent(saveDate)}`);
+      startSaveNavigation(() => {
+        router.push(`/?date=${encodeURIComponent(saveDate)}`);
+        // In the same transition, so the planner is replaced as it leaves the screen, not before.
+        onSaved();
+      });
     } catch (error) {
       setSaveError(
         error instanceof Error ? error.message : "Could not save this trip.",
