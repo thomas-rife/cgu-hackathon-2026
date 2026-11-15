@@ -12,8 +12,9 @@ import {
 } from "@/lib/saved-trips";
 import { useSavedTrips } from "@/lib/use-saved-trips";
 import { formatDeparture } from "@/lib/simulation";
-import { estimateRouteImpact } from "@/lib/route-metrics";
 import PlanMap from "./plan-map";
+import HowItWorks from "./how-it-works";
+import DaySummaryCard from "./day-summary-card";
 import WhosAffected from "./whos-affected";
 import { decisionImpact } from "@/lib/decision-impact";
 
@@ -26,6 +27,7 @@ export default function TodaysPlan() {
   const router = useRouter();
   const { trips, ready, today, error, communityError } = useSavedTrips();
   const [actionError, setActionError] = useState("");
+  const [howOpen, setHowOpen] = useState(false);
   const queryDate = params.get("date");
   const date = validPlanDate(queryDate) ? queryDate : today;
   const dayTrips = useMemo(() => sortedDayTrips(trips, date), [trips, date]);
@@ -35,7 +37,7 @@ export default function TodaysPlan() {
     {
       label: "Fuel cost",
       value: `$${totals.fuel.toFixed(2)}`,
-      note: "Estimate at $8.17/gallon",
+      note: "Estimate using each trip’s saved diesel price",
     },
     {
       label: "CO₂",
@@ -67,10 +69,11 @@ export default function TodaysPlan() {
   }
   return (
     <main className="min-h-dvh bg-slate-50 text-slate-900">
-      <header className="border-b border-slate-200 bg-white px-5 py-3">
+      <header className="flex items-center justify-between gap-4 border-b border-slate-200 bg-white px-5 py-3">
         <Link className="text-lg font-semibold tracking-tight" href="/">
           FleetForward
         </Link>
+        <button type="button" onClick={() => setHowOpen(true)} className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-medium text-blue-700 hover:bg-blue-50">How this works</button>
       </header>
       <div className="mx-auto max-w-7xl space-y-6 px-5 py-7 sm:px-8">
         <div className="flex flex-wrap items-end justify-between gap-4">
@@ -127,6 +130,7 @@ export default function TodaysPlan() {
             {error || actionError || communityError}
           </p>
         )}
+        {ready && !error && <DaySummaryCard trips={dayTrips} />}
         <section
           aria-label="Day impact totals"
           className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5"
@@ -199,10 +203,6 @@ export default function TodaysPlan() {
               {dayTrips.map((trip, index) => {
                 const first = trip.route.stops[0],
                   last = trip.route.stops[trip.route.stops.length - 1];
-                const impact = estimateRouteImpact(
-                  trip.route.miles,
-                  Number(trip.draft.dieselPrice),
-                );
                 return (
                   <li
                     key={trip.id}
@@ -265,23 +265,9 @@ export default function TodaysPlan() {
                       className="mt-3 flex flex-wrap gap-1.5"
                     >
                       {[
-                        `${trip.route.miles.toFixed(1)} mi`,
-                        `$${impact.fuelCost!.toFixed(2)} fuel est.`,
-                        `${impact.co2Kg.toFixed(1)} kg CO₂ est.`,
-                        ...(trip.route.communityImpact
-                          ? [
-                              `${trip.route.communityImpact.highDieselMi.toFixed(1)} mi high-diesel`,
-                              `${trip.route.communityImpact.dacMi.toFixed(1)} mi disadvantaged`,
-                            ]
-                          : []),
-                        ...(trip.option === "alternate"
-                          ? [trip.candidate?.name || "Alternate route"]
-                          : []),
-                        ...trip.indicators.map((indicator) =>
-                          ["Static baseline", "Baseline route"].includes(indicator)
-                            ? "Original plan"
-                            : indicator,
-                        ),
+                        trip.option === "alternate"
+                          ? (trip.candidate?.tags.includes("Lowest community burden") ? "Lowest DAC miles" : trip.candidate?.tags.includes("Lowest emissions") ? "Lowest emissions" : trip.candidate?.tags.includes("Fastest") ? "Fastest" : trip.candidate?.tags.includes("Balanced") ? "Balanced" : trip.candidate?.name || "Alternate route")
+                          : "Original plan",
                       ].map((indicator, i) => (
                         <span
                           key={`${i}-${indicator}`}
@@ -298,6 +284,7 @@ export default function TodaysPlan() {
           )}
         </section>
       </div>
+    {howOpen && <HowItWorks onClose={() => setHowOpen(false)} />}
     </main>
   );
 }

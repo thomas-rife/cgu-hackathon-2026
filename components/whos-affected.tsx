@@ -23,8 +23,12 @@ export default function WhosAffected({
     number: number | null | undefined,
     unit: "$" | "min" | "kg" | "mi",
   ) => (totals ? "text-slate-900" : impactColor(number ?? null, unit));
-  const companyUnchanged = !totals && isNoChange(impact?.fuel, "$") && isNoChange(impact?.co2Kg, "kg");
-  const companyColor = !isNoChange(impact?.fuel, "$") && impact?.fuel != null ? color(impact.fuel, "$") : color(impact?.co2Kg, "kg");
+  const companyUnchanged =
+    !totals && isNoChange(impact?.fuel, "$") && isNoChange(impact?.co2Kg, "kg");
+  const companyColor =
+    !isNoChange(impact?.fuel, "$") && impact?.fuel != null
+      ? color(impact.fuel, "$")
+      : color(impact?.co2Kg, "kg");
   if (compact)
     return (
       <p
@@ -71,7 +75,36 @@ export default function WhosAffected({
           <dd
             className={`text-[11px] font-medium tabular-nums ${companyColor}`}
           >
-            {companyUnchanged ? "No change" : <><span className={!totals && isNoChange(impact?.fuel, "$") ? "text-slate-500" : undefined}>{value(impact?.fuel, "$")} fuel</span>{!totals && <> · <span className={isNoChange(impact?.co2Kg, "kg") ? "text-slate-500" : undefined}>{value(impact?.co2Kg, "kg")} CO₂</span></>}</>}
+            {companyUnchanged ? (
+              "No change"
+            ) : (
+              <>
+                <span
+                  className={
+                    !totals && isNoChange(impact?.fuel, "$")
+                      ? "text-slate-500"
+                      : undefined
+                  }
+                >
+                  {value(impact?.fuel, "$")} fuel
+                </span>
+                {!totals && (
+                  <>
+                    {" "}
+                    and{" "}
+                    <span
+                      className={
+                        isNoChange(impact?.co2Kg, "kg")
+                          ? "text-slate-500"
+                          : undefined
+                      }
+                    >
+                      {value(impact?.co2Kg, "kg")} CO₂
+                    </span>
+                  </>
+                )}
+              </>
+            )}
           </dd>
         </div>
         <div className={totals ? "" : "grid grid-cols-[70px_1fr] gap-2"}>
@@ -80,7 +113,11 @@ export default function WhosAffected({
             className={`text-[11px] font-medium tabular-nums ${color(impact?.minutes, "min")}`}
           >
             {value(impact?.minutes, "min")}{" "}
-            {totals ? "total driving time" : isNoChange(impact?.minutes, "min") ? "" : "on shift"}
+            {totals
+              ? "total driving time"
+              : isNoChange(impact?.minutes, "min")
+                ? ""
+                : "on shift"}
           </dd>
         </div>
         <div className={totals ? "" : "grid grid-cols-[70px_1fr] gap-2"}>
@@ -91,7 +128,9 @@ export default function WhosAffected({
             {value(impact?.dacMi, "mi")}{" "}
             {totals
               ? "by trucks in disadvantaged communities"
-              : isNoChange(impact?.dacMi, "mi") ? "" : "through disadvantaged communities"}
+              : isNoChange(impact?.dacMi, "mi")
+                ? ""
+                : "through disadvantaged communities"}
           </dd>
         </div>
       </dl>

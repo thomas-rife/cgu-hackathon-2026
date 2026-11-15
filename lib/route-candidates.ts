@@ -93,14 +93,6 @@ export function balanceScore(candidate: RouteCandidate, frontier: RouteCandidate
 }
 
 export function recommendedCandidates(all: RouteCandidate[]): RouteCandidate[] {
-  const frontier = mergeNearDuplicates(all.filter(candidate => !candidate.dominated));
-  if (frontier.length <= 4) return frontier;
-  const chosen: RouteCandidate[] = [];
-  for (const tag of ["Fastest", "Lowest community burden", "Lowest emissions", "Balanced"] as const) {
-    const candidate = frontier.find(item => item.tags.includes(tag));
-    if (candidate && !chosen.includes(candidate)) chosen.push(candidate);
-  }
-  const middle = frontier.filter(item => !chosen.includes(item)).sort((a, b) => balanceScore(a, frontier) - balanceScore(b, frontier) || a.route.minutes - b.route.minutes);
-  chosen.push(...middle.slice(0, 4 - chosen.length));
-  return chosen.sort((a, b) => a.route.minutes - b.route.minutes || a.route.miles - b.route.miles);
+  const tagged = mergeNearDuplicates(all.filter(candidate => !candidate.dominated && candidate.tags.length > 0));
+  return tagged.slice(0, 4).sort((a, b) => a.route.minutes - b.route.minutes || a.route.miles - b.route.miles);
 }

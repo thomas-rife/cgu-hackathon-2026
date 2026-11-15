@@ -54,8 +54,9 @@ test('missing DAC data is incomparable and cap preserves the three individual mi
   assert.equal(dominates(route(0,60,20,1),route(.05,90,25,0,false)),false);
   const all=rankCandidates(Array.from({length:6},(_,i)=>({route:route(i*.05,60+i*10,20+i,i===5?0:12-i),source:'corridor'})));
   const visible=recommendedCandidates(all);
-  assert.equal(visible.length,4);assert.ok(visible.includes(all[0]));assert.ok(visible.includes(all[5]));
+  assert.equal(visible.length,3);assert.ok(visible.includes(all[0]));assert.ok(visible.includes(all[5]));
   assert.ok(visible.some(c=>c.tags.includes('Balanced')));
+  assert.ok(visible.every(c=>c.tags.length>0));
 });
 test('decision trade-offs and daily driving totals use chosen routes, not schedule differences',()=>{
   const base=route(0,60,60,30),chosen=route(.1,67,66,16);
