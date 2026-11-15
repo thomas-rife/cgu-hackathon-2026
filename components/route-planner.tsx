@@ -785,6 +785,9 @@ export default function RoutePlanner({
               routeKey={baselineKey}
               assistant={{
                 freeways: active.route?.freeways.map(freeway => freeway.id) || [],
+                selectedRoute: selectedRoute && selectedCandidate
+                  ? { name: selectedCandidate.name, freeways: selectedRoute.freeways.map(freeway => freeway.id), tags: selectedCandidate.tags }
+                  : active.route ? { name: "Original plan", freeways: active.route.freeways.map(freeway => freeway.id), tags: [] } : null,
                 routes: active.route ? assistantRoutes(active.route, hasSimulation ? allCandidates : [], price) : [],
                 ready: !!active.route && !active.loading && !alternate.loading,
                 onApply: applyAssistantDisruptions,

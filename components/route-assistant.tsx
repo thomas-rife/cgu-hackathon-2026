@@ -12,6 +12,7 @@ type ChatLine = { id: string; role: "user" | "assistant" | "system"; text: strin
 type Undo = { id: string; kind: "disruption"; previous: Disruption[] } | { id: string; kind: "selection"; previous: { key: string; id: string } | null };
 export type AssistantProps = {
   freeways: string[];
+  selectedRoute: { name: string; freeways: string[]; tags: string[] } | null;
   disruptions: Disruption[];
   routes: AssistantRoute[];
   ready: boolean;
@@ -20,7 +21,6 @@ export type AssistantProps = {
   onSelect: (args: SelectRouteArgs) => { result: SelectRouteResult; previous: { key: string; id: string } | null };
   onUndoSelection: (previous: { key: string; id: string } | null) => void;
 };
-const EXAMPLES = ["What if the 710 was blocked?", "What if there was a crash on the 60 and we left at 7:30?", "Clear everything"];
 
 export default function RouteAssistant(props: AssistantProps) {
   const [lines, setLines] = useState<ChatLine[]>([]);
@@ -33,6 +33,15 @@ export default function RouteAssistant(props: AssistantProps) {
   const request = useRef<AbortController | null>(null);
   const end = useRef<HTMLDivElement | null>(null);
   const latest = useRef(props);
+  const selectedFreeways = props.selectedRoute?.freeways.filter(freeway => props.freeways.includes(freeway)) || [];
+  const examples = [
+    ...(selectedFreeways[0] ? [`What if ${selectedFreeways[0]} was blocked?`] : []),
+    ...(selectedFreeways[1] || selectedFreeways[0] ? [`What if there was a crash on ${selectedFreeways[1] || selectedFreeways[0]}?`] : []),
+    ...(props.selectedRoute?.name !== "Original plan" && props.selectedRoute
+      ? [`Choose the ${props.selectedRoute.tags.includes("Lowest community burden") ? "fastest" : "lowest-DAC-mile"} route instead of ${props.selectedRoute.name}.`]
+      : []),
+    ...(props.disruptions.length ? ["Clear everything"] : []),
+  ].slice(0, 3);
   useEffect(() => { latest.current = props; }, [props]);
   useEffect(() => () => { request.current?.abort(); }, [props.cancelVersion]);
   useEffect(() => { end.current?.scrollIntoView({ block: "nearest" }); }, [lines, status]);
@@ -114,7 +123,7 @@ export default function RouteAssistant(props: AssistantProps) {
     <div role="log" aria-label="Dispatch assistant messages" className="min-h-24 max-h-[min(38dvh,360px)] space-y-3 overflow-y-auto overscroll-contain pr-1 text-xs">
       {!lines.length && <div className="space-y-2 py-2">
         <p className="text-slate-600">Describe a scenario to apply it to your route.</p>
-        {EXAMPLES.map(example => <button key={example} disabled={!props.ready || busy} onClick={() => void send(example)} className="block rounded-full border border-slate-200 px-3 py-2 text-left text-xs text-blue-700 hover:bg-blue-50 disabled:opacity-40">{example}</button>)}
+        {examples.map(example => <button key={example} disabled={!props.ready || busy} onClick={() => void send(example)} className="block rounded-full border border-slate-200 px-3 py-2 text-left text-xs text-blue-700 hover:bg-blue-50 disabled:opacity-40">{example}</button>)}
       </div>}
       {lines.map(line => <div key={line.id} className={line.role === "user" ? "ml-6 rounded-xl bg-blue-50 px-3 py-2 text-slate-800" : line.role === "system" ? "rounded-lg border border-slate-200 bg-slate-50 p-2 text-xs text-slate-600" : "pr-2 leading-relaxed text-slate-600"}>
         {line.text || (busy ? <span className="text-slate-500">{status || "Replying locally…"}</span> : null)}
