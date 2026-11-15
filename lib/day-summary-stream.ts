@@ -1,7 +1,7 @@
 import OpenAI from "openai";
 import type { DaySummaryInput } from "./day-summary";
 
-export const DAY_SUMMARY_PROMPT = "Summarize today's dispatch plan in 2–3 sentences for a manager: how many trips, what disruptions affected them, and the overall trade-off between cost/time and community impact. Use only numbers provided. Do not recommend or judge decisions.";
+export const DAY_SUMMARY_PROMPT = "Summarize today's dispatch plan in 2 sentences for a manager: how many trips, what disruptions affected them, and the overall trade-off between cost/time and community impact. Use only numbers provided. Do not recommend or judge decisions.";
 export function streamDaySummary(input: DaySummaryInput, options: { baseURL: string; model: string; signal?: AbortSignal; fetcher?: typeof fetch; timeoutMs?: number }): ReadableStream<Uint8Array> {
   const controller = new AbortController();
   const timeoutMs = options.timeoutMs ?? 15000;
@@ -13,7 +13,7 @@ export function streamDaySummary(input: DaySummaryInput, options: { baseURL: str
       try {
         if (signal.aborted) return;
         const client = new OpenAI({ baseURL: options.baseURL.replace(/\/+$/, ""), apiKey: "local", maxRetries: 0, timeout: timeoutMs, ...(options.fetcher ? { fetch: options.fetcher } : {}) });
-        const system = `${DAY_SUMMARY_PROMPT}\nUse only the rounded input values and freeway names. Do not calculate new numbers. If there are no disruptions, say so. Report fuel amounts as dollars, not gallons. Include the number of trips and a cost/time versus disadvantaged-community-mile trade-off. Output only the 2–3 sentence summary.`;
+        const system = `${DAY_SUMMARY_PROMPT}\nUse only the rounded input values and freeway names. Do not calculate new numbers. Each trip lists its own disruptions; say there were none only if every list is empty. Report fuel amounts as dollars, not gallons. Include the number of trips and a cost/time versus disadvantaged-community-mile trade-off. Comparisons are versus "the fastest available route"; negative extra values are savings. Lead with the overall trade-off vs. the fastest routes. Mention disruptions briefly, at most one clause. Output only the 2 sentence summary.`;
         const user = `Summarize this saved day plan:\n${JSON.stringify(input)}`;
         if (/bolt-instruct-v2/i.test(options.model)) {
           const stream = await client.completions.create({ model: options.model, temperature: 0, max_tokens: 220, stream: true, prompt: `<|start|>system<|message|>${system}<|eot|><|start|>user<|message|>${user}<|eot|><|start|>assistant to=user<|message|>`, stop: ["<|eot|>", "<|eom|>", "<|return|>", "<|end|>"] }, { signal });

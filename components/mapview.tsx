@@ -340,9 +340,9 @@ export default function MapView({ route, referenceRoute, originalPlanRoute, cand
                 title={`DAC miles are miles driven through disadvantaged communities; lower is better. Tags rank the routes found.${candidate.dominated ? " Outperformed: another route is no worse on time, DAC miles, and emissions and better on at least one." : ""}`}
                 className={`pointer-events-auto absolute z-10 w-[190px] -translate-x-1/2 -translate-y-1/2 rounded-lg border bg-white/95 px-2.5 py-2 text-left shadow-md ${selected ? "border-2" : "border-slate-200 text-slate-600"}`}
                 style={{ left: label.x, top: label.y, height: ROUTE_LABEL_HEIGHT, ...(selected ? { borderColor: candidateColor(candidate), backgroundColor: `color-mix(in srgb, ${candidateColor(candidate)} 10%, white)` } : {}) }} onClick={() => onSelectCandidate(candidate.id)}>
-                <span className="flex items-center gap-2 text-[11px]"><span className="shrink-0 whitespace-nowrap font-semibold" style={{ color: candidateColor(candidate) }}>{candidate.name}</span><span className="whitespace-nowrap text-[10px] tabular-nums">{summary}</span></span>
-                {candidate.dominated && candidate.tags.length > 0 && <span className="mt-1 block text-[8px] text-slate-400">Outperformed · shown for transparency</span>}
-                {!!candidate.tags.length && <span className="mt-1 flex flex-wrap gap-1">{candidate.tags.map(tag => <span key={tag} className="rounded bg-slate-100 px-1 py-0.5 text-[8px] font-medium text-slate-600">{tag === "Lowest community burden" ? "Lowest DAC miles" : tag === "Lowest emissions" ? "Lowest CO₂" : tag}</span>)}</span>}
+                <span className="flex items-center gap-2 text-xs"><span className="shrink-0 whitespace-nowrap font-semibold" style={{ color: candidateColor(candidate) }}>{candidate.name}</span><span className="whitespace-nowrap text-xs tabular-nums">{summary}</span></span>
+                {candidate.dominated && candidate.tags.length > 0 && <span className="mt-1 block text-[10px] text-slate-500">Outperformed · shown for transparency</span>}
+                {!!candidate.tags.length && <span className="mt-1 flex flex-wrap gap-1">{candidate.tags.map(tag => <span key={tag} className="rounded bg-slate-100 px-1 py-0.5 text-[10px] font-medium text-slate-600">{tag === "Lowest community burden" ? "Lowest DAC miles" : tag === "Lowest emissions" ? "Lowest CO₂" : tag}</span>)}</span>}
               </button>;
             })}
           </div>}
@@ -362,7 +362,7 @@ export default function MapView({ route, referenceRoute, originalPlanRoute, cand
           </div>
           <button type="button" className="absolute rounded-md border border-slate-200 bg-white px-3 py-2 text-xs font-medium text-slate-700 shadow-sm" style={{ top: mapPadding.top + 16, left: mapPadding.left + 64 }} onClick={fitRoute}>Fit route</button>
           <div className="absolute right-4 bottom-6"><DieselBurdenControl control={dieselLayer} /></div>
-          {focus && <div className="absolute bottom-10 max-w-[min(300px,calc(100%-2rem))] rounded-lg border border-slate-200 bg-white p-3 text-xs shadow-sm" style={{ left: mapPadding.left + 16 }}><p className="font-semibold">{focus.location.name}</p><p className="mt-1 text-slate-500">{focus.location.address}</p><button type="button" className="mt-2 text-blue-700 underline" onClick={fitRoute}>Show entire route</button></div>}
+          {focus && <div className="absolute bottom-10 max-w-[min(300px,calc(100%-2rem))] rounded-lg border border-slate-200 bg-white p-3 text-xs shadow-sm" style={{ left: mapPadding.left + 16 }}><p className="font-semibold">{focus.location.name}</p><p className="mt-1 text-slate-600">{focus.location.address}</p><button type="button" className="mt-2 text-blue-700 underline" onClick={fitRoute}>Show entire route</button></div>}
         </>
       )}
       {status === "loading" && (

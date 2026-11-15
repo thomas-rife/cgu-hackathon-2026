@@ -25,6 +25,8 @@ export type SavedTrip = {
   candidate?: Pick<RouteCandidate, "id" | "name" | "source" | "tags">;
   tradeoff?: DecisionImpact;
   fastestTradeoff?: DecisionImpact;
+  // Change in high-diesel miles vs. the fastest available route; absent on older trips.
+  fastestHighDieselMi?: number | null;
   tradeoffReference?: ReferenceLabel;
   route: RouteResult;
   draft: PlannerDraft;

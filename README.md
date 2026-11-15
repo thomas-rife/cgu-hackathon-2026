@@ -335,9 +335,12 @@ Routes are Pareto-filtered on actual time, DAC miles, and estimated emissions.
 If another option is no worse on all three and strictly better on at least one,
 the dominated option is hidden by default. Missing DAC data is incomparable, never
 zero. After Pareto filtering, routes within 2 min AND 1.0 DAC mi are merged,
-keeping the faster one. At most one untagged survivor gets **Balanced**, minimizing
-`(time - minTime)/(maxTime - minTime) + (dacMi - minDac)/(maxDac - minDac)`;
-a zero range contributes zero. No untagged survivor means no Balanced tag.
+keeping the faster one. **Balanced** goes to at most one untagged survivor that sits
+strictly between the fastest route and the lowest-DAC route on both time and DAC
+miles; if several qualify, the one minimizing
+`(time - minTime)/(maxTime - minTime) + (dacMi - minDac)/(maxDac - minDac)` wins.
+If one route is both fastest and lowest-DAC, or the fastest route has no DAC data,
+there is no Balanced tag, and untagged routes appear only under Show all candidates.
 The default map caps this set at four, prioritizing the extrema and Balanced choice.
 **Show all candidates (N)** reveals every distinct verified route, including those
 marked Outperformed, near-duplicates merged from the default view, and any

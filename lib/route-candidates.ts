@@ -54,7 +54,14 @@ export function rankCandidates(input: { route: RouteResult; source: RouteCandida
 
   }
   const frontier = mergeNearDuplicates(ranked.filter(candidate => !candidate.dominated));
-  const balance = frontier.filter(candidate => !candidate.tags.length && candidate.route.communityImpact?.avgDieselPct != null)
+  // Balanced is a real middle ground: strictly between the fastest route and the
+  // lowest-DAC route on BOTH time and DAC miles. If one route wins both, or the
+  // fastest route has no DAC data, nothing qualifies.
+  const fastestDac = Math.min(...ranked.filter(candidate => candidate.tags.includes("Fastest") && candidate.route.communityImpact?.avgDieselPct != null).map(candidate => candidate.route.communityImpact!.dacMi));
+  const leastDacMinutes = Math.min(...ranked.filter(candidate => candidate.tags.includes("Lowest community burden")).map(candidate => candidate.route.minutes));
+  const between = (candidate: RouteCandidate) => Number.isFinite(fastestDac) && candidate.route.minutes > fastest + 1e-6 && candidate.route.minutes < leastDacMinutes - 1e-6
+    && candidate.route.communityImpact!.dacMi > leastDac + 1e-6 && candidate.route.communityImpact!.dacMi < fastestDac - 1e-6;
+  const balance = frontier.filter(candidate => !candidate.tags.length && candidate.route.communityImpact?.avgDieselPct != null && between(candidate))
     .sort((a, b) => balanceScore(a, frontier) - balanceScore(b, frontier) || a.route.minutes - b.route.minutes)[0];
   if (balance) balance.tags.push("Balanced");
   const preferred = recommendedCandidates(ranked);

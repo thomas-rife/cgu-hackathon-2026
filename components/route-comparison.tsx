@@ -61,7 +61,7 @@ type Row = {
 };
 function EstimateBadge() {
   return (
-    <span className="ml-1 inline-block rounded border border-amber-200 bg-amber-50 px-1 py-0.5 align-middle text-[8px] font-semibold uppercase tracking-wide text-amber-800">
+    <span className="ml-1 inline-block rounded border border-amber-200 bg-amber-50 px-1 py-0.5 align-middle text-[10px] font-semibold uppercase tracking-wide text-amber-800">
       Est.
     </span>
   );
@@ -188,7 +188,7 @@ export default function RouteComparison(props: Props) {
         <tr key={row.label} className="border-b border-slate-100 last:border-0">
           <th
             scope="row"
-            className="py-3 pr-2 text-left text-[11px] font-medium leading-relaxed text-slate-600"
+            className="py-3 pr-2 text-left text-xs font-medium leading-relaxed text-slate-600"
           >
             {row.label}
             {row.estimate && <EstimateBadge />}
@@ -197,7 +197,7 @@ export default function RouteComparison(props: Props) {
             {formatValue(row.base, row.unit)}
             {row.time && baselineArrival !== null && (
               <span
-                className="mt-1 block text-[9px] text-slate-500"
+                className="mt-1 block text-[11px] text-slate-600"
                 title="Arrival in Pacific time"
               >
                 arrives {formatArrival(baselineArrival)}
@@ -210,7 +210,7 @@ export default function RouteComparison(props: Props) {
                 {formatValue(row.alt, row.unit)}
                 {row.time && alternateArrival !== null && (
                   <span
-                    className="mt-1 block text-[9px] text-slate-500"
+                    className="mt-1 block text-[11px] text-slate-600"
                     title="Arrival in Pacific time"
                   >
                     arrives {formatArrival(alternateArrival)}
@@ -251,11 +251,30 @@ export default function RouteComparison(props: Props) {
         <span aria-hidden="true">▸</span>
       </button>
     );
+  const loading = props.baselineLoading || props.alternateLoading;
   return (
     <section
-      className={`rounded-2xl border border-slate-200 bg-white shadow-lg shadow-slate-900/5 ${props.expanded ? "p-4" : "p-3"}`}
+      className={`relative rounded-2xl border border-slate-200 bg-white shadow-lg shadow-slate-900/5 ${props.expanded ? "p-4" : "p-3"}`}
       aria-label="Route comparison"
+      aria-busy={loading}
     >
+      {/* While routes are being solved, grey out the stale numbers and block clicks on them. */}
+      {loading && props.expanded && (
+        <div className="absolute inset-x-0 top-12 bottom-0 z-10 flex items-start justify-center rounded-b-2xl bg-slate-100/75 pt-16">
+          <p
+            role="status"
+            className="flex items-center gap-2 rounded-full border border-slate-200 bg-white px-3.5 py-2 text-xs font-medium text-slate-700 shadow-md"
+          >
+            <span
+              aria-hidden="true"
+              className="size-3.5 animate-spin rounded-full border-2 border-slate-300 border-t-blue-600 motion-reduce:animate-none"
+            />
+            {props.baselineLoading
+              ? "Calculating planned route…"
+              : "Finding route options…"}
+          </p>
+        </div>
+      )}
       <div className="flex items-center justify-between gap-2">
         <h2 className="text-sm font-semibold">
           {props.hasSimulation ? "Route comparison" : "Original plan"}
@@ -319,20 +338,17 @@ export default function RouteComparison(props: Props) {
         </>
       )}
       <div
-        className="mt-2 space-y-1 text-[11px] leading-relaxed"
+        className="mt-2 space-y-1 text-xs leading-relaxed"
         aria-live="polite"
       >
         {props.expanded && props.prompt && (
-          <p className="text-slate-500">{props.prompt}</p>
+          <p className="text-slate-600">{props.prompt}</p>
         )}
-        {props.baselineLoading && (
+        {loading && !props.expanded && (
           <p role="status" className="text-blue-700">
-            Calculating planned route…
-          </p>
-        )}
-        {props.alternateLoading && (
-          <p role="status" className="text-blue-700">
-            Finding route options…
+            {props.baselineLoading
+              ? "Calculating planned route…"
+              : "Finding route options…"}
           </p>
         )}
         {props.baselineError && (
@@ -366,7 +382,7 @@ export default function RouteComparison(props: Props) {
             />
           )}
           {props.candidateNotice && (
-            <p className="mt-2 text-[11px] text-slate-500">
+            <p className="mt-2 text-xs text-slate-600">
               {props.candidateNotice}
             </p>
           )}
@@ -375,7 +391,7 @@ export default function RouteComparison(props: Props) {
               {props.scenarioLabels.map((label) => (
                 <span
                   key={label}
-                  className="rounded-md bg-orange-50 px-2 py-1 text-[10px] text-orange-800"
+                  className="rounded-md bg-orange-50 px-2 py-1 text-xs text-orange-800"
                 >
                   {label}
                 </span>
@@ -383,7 +399,7 @@ export default function RouteComparison(props: Props) {
             </div>
           )}
           <table
-            className="mt-3 w-full table-fixed text-[11px] tabular-nums"
+            className="mt-3 w-full table-fixed text-xs tabular-nums"
             aria-label={
               props.hasSimulation
                 ? `${referenceLabel} and selected route metrics`
@@ -419,7 +435,7 @@ export default function RouteComparison(props: Props) {
                     >
                       {selectedCandidate?.name || "Selected"}
                     </th>
-                    <th className="pb-2 text-right font-medium text-slate-500">
+                    <th className="pb-2 text-right font-medium text-slate-600">
                       Change
                     </th>
                   </>
@@ -440,7 +456,7 @@ export default function RouteComparison(props: Props) {
                     }
                   >
                     Operations
-                    <span aria-hidden="true" className="text-slate-400">
+                    <span aria-hidden="true" className="text-slate-500">
                       {operationsExpanded ? "⌃" : "⌄"}
                     </span>
                   </button>
@@ -458,7 +474,7 @@ export default function RouteComparison(props: Props) {
                     onClick={() => setCommunityOpen(!communityOpen)}
                   >
                     Community
-                    <span aria-hidden="true" className="text-slate-400">
+                    <span aria-hidden="true" className="text-slate-500">
                       {communityOpen ? "⌃" : "⌄"}
                     </span>
                   </button>
@@ -468,14 +484,14 @@ export default function RouteComparison(props: Props) {
             </tbody>
           </table>
           {alternate && (
-            <p className="mt-2 text-[9px] text-slate-400">
+            <p className="mt-2 text-[11px] text-slate-500">
               {referenceLabel === "Original plan"
                 ? `Dashed gray: original plan${alternate.closures?.length ? " · red: blocked stretch" : ""} · bold color: selected route`
                 : "Bold color: selected route · changes measured against the fastest route"}
             </p>
           )}
           {!props.hasSimulation && baseline && (
-            <p className="mt-2 text-[10px] text-slate-500">
+            <p className="mt-2 text-xs text-slate-600">
               Free-flow truck speeds · no departure time set
             </p>
           )}
@@ -506,7 +522,7 @@ export default function RouteComparison(props: Props) {
         )}
       </div>
       {!validPrice && (
-        <p className="mt-2 text-[10px] text-red-700">
+        <p className="mt-2 text-xs text-red-700">
           Enter a valid diesel price in settings to save.
         </p>
       )}
@@ -549,7 +565,7 @@ export default function RouteComparison(props: Props) {
               required
               onChange={(event) => setSaveDate(event.target.value)}
             />
-            <p className="mt-3 text-xs leading-relaxed text-slate-500">
+            <p className="mt-3 text-xs leading-relaxed text-slate-600">
               {props.editingSavedTrip
                 ? "This replaces your saved trip with the chosen option."
                 : "Add this route to Today’s Plan."}{" "}

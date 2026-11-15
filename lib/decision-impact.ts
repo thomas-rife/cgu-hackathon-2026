@@ -31,5 +31,5 @@ export function impactValue(value: number | null, unit: ImpactUnit, signed = tru
 }
 
 export function impactColor(value: number | null, unit: ImpactUnit) {
-  return value == null || isNoChange(value, unit) ? "text-slate-500" : value < 0 ? "text-emerald-700" : "text-red-700";
+  return value == null || isNoChange(value, unit) ? "text-slate-600" : value < 0 ? "text-emerald-700" : "text-red-700";
 }

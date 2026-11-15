@@ -22,9 +22,14 @@ export default function PlanMap({ trips }: { trips: SavedTrip[] }) {
       if (!apiKey) throw new Error("Map key missing.");
       const [{ default: Map }, { default: Basemap }, { default: View }] = await Promise.all([import("@arcgis/core/Map.js"), import("@arcgis/core/Basemap.js"), import("@arcgis/core/views/MapView.js")]);
       if (disposed || !containerRef.current) return;
+      // Navigation keeps this page mounted but hidden, so status can still be "ready" from the
+      // destroyed view. Reset it so the route and diesel-layer effects run again for the new view.
+      setStatus("loading");
       const basemap = new Basemap({ style: { id: "arcgis/navigation", apiKey } });
       map = new Map({ basemap });
-      view = new View({ container: containerRef.current, map, center: [-118.15, 33.84], zoom: 8, popupEnabled: false, padding: { top: 30, left: 30, right: 30, bottom: 30 }, constraints: { rotationEnabled: false } });
+      view = new View({ container: containerRef.current, map, center: [-118.15, 33.84], zoom: 8, popupEnabled: false, padding: { top: 30, left: 30, right: 30, bottom: 30 }, constraints: { rotationEnabled: false }, ui: { components: [] } });
+      // Overview only: no zoom buttons, and swallow every pan/zoom gesture and key.
+      for (const event of ["drag", "mouse-wheel", "double-click", "key-down"] as const) view.on(event, (input: { stopPropagation: () => void }) => input.stopPropagation());
       viewRef.current = view;
       await Promise.all([view.when(), basemap.loadAll()]);
       if (!disposed) setStatus("ready");
@@ -57,6 +62,6 @@ export default function PlanMap({ trips }: { trips: SavedTrip[] }) {
   return <div className="relative h-64 overflow-hidden rounded-xl bg-slate-100" aria-label={`Map of ${trips.length} saved routes`} aria-busy={status === "loading"}>
     <div ref={containerRef} className="h-full w-full" />
     {status === "ready" && <div className="absolute right-3 bottom-6"><DieselBurdenControl control={dieselLayer} /></div>}
-    {status !== "ready" && <p role="status" className="absolute inset-0 grid place-items-center bg-slate-100/90 p-5 text-center text-xs text-slate-500">{status === "error" ? "Map unavailable. Your saved trips are still listed below." : "Loading saved routes…"}</p>}
+    {status !== "ready" && <p role="status" className="absolute inset-0 grid place-items-center bg-slate-100/90 p-5 text-center text-xs text-slate-600">{status === "error" ? "Map unavailable. Your saved trips are still listed below." : "Loading saved routes…"}</p>}
   </div>;
 }

@@ -29,9 +29,9 @@ export default function DisruptionWorkspace({ tab, onTabChange, baseline, settin
           const next = event.key === "Home" ? "disruptions" : event.key === "End" ? "assistant" : value === "assistant" ? "disruptions" : "assistant";
           onTabChange(next);
           document.getElementById(`${next}-tab`)?.focus();
-        }} className={`rounded-md px-2.5 py-1.5 text-xs font-medium ${tab === value ? "bg-white text-slate-900 shadow-sm" : "text-slate-500 hover:text-slate-800"}`}>{value === "assistant" ? "Assistant" : "Disruptions"}</button>)}
+        }} className={`rounded-md px-2.5 py-1.5 text-xs font-medium ${tab === value ? "bg-white text-slate-900 shadow-sm" : "text-slate-600 hover:text-slate-800"}`}>{value === "assistant" ? "Assistant" : "Disruptions"}</button>)}
       </div>
-      <span className="rounded border border-amber-200 bg-amber-50 px-2 py-0.5 text-[10px] font-medium text-amber-800">Simulated</span>
+      <span className="rounded border border-amber-200 bg-amber-50 px-2 py-0.5 text-xs font-medium text-amber-800">Simulated</span>
     </div>
     <ActiveDisruptions items={settings.disruptions} onRemove={id => manualChange({ disruptions: settings.disruptions.filter(item => item.id !== id) })} />
     <div hidden={tab !== "disruptions"} role="tabpanel" id="disruptions-panel" aria-labelledby="disruptions-tab">

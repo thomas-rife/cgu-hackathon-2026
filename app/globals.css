@@ -1,4 +1,9 @@
-@import "tailwindcss";
+/* Scan only source folders. Automatic detection also picks up data/ (200+ MB of CSV and
+   shapefiles) and makes every one of those files a build dependency of this stylesheet. */
+@import "tailwindcss" source(none);
+@source "../app";
+@source "../components";
+@source "../lib";
 
 :root {
   --background: #ffffff;

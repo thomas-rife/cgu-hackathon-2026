@@ -16,7 +16,8 @@ import PlanMap from "./plan-map";
 import HowItWorks from "./how-it-works";
 import DaySummaryCard from "./day-summary-card";
 import WhosAffected from "./whos-affected";
-import { decisionImpact } from "@/lib/decision-impact";
+import { impactColor, impactValue, isNoChange } from "@/lib/decision-impact";
+import type { DecisionImpact } from "@/lib/decision-impact";
 
 function planClock(minutes: number) {
   const offset = Math.floor(Math.round(minutes) / 1440);
@@ -32,28 +33,77 @@ export default function TodaysPlan() {
   const date = validPlanDate(queryDate) ? queryDate : today;
   const dayTrips = useMemo(() => sortedDayTrips(trips, date), [trips, date]);
   const totals = dailyTripTotals(dayTrips);
-  const metrics = [
-    { label: "Total miles", value: `${totals.miles.toFixed(1)} mi`, note: "" },
+  // The whole day view compares with the fastest available route, like the AI summary.
+  const add = (a: number | null, b: number | null) =>
+    a === null || b === null ? null : a + b;
+  const vsFastest =
+    dayTrips.length && dayTrips.every((trip) => trip.fastestTradeoff)
+      ? dayTrips.reduce<DecisionImpact>(
+          (sum, trip) => ({
+            fuel: add(sum.fuel, trip.fastestTradeoff!.fuel),
+            co2Kg: sum.co2Kg + trip.fastestTradeoff!.co2Kg,
+            minutes: sum.minutes + trip.fastestTradeoff!.minutes,
+            dacMi: add(sum.dacMi, trip.fastestTradeoff!.dacMi),
+          }),
+          { fuel: 0, co2Kg: 0, minutes: 0, dacMi: 0 },
+        )
+      : null;
+  const highDieselVsFastest =
+    dayTrips.length &&
+    dayTrips.every(
+      (trip) => trip.fastestTradeoff && trip.fastestHighDieselMi != null,
+    )
+      ? dayTrips.reduce((sum, trip) => sum + trip.fastestHighDieselMi!, 0)
+      : null;
+  // Each card: who it affects, the day total, and the change vs. the fastest available route.
+  const metrics: {
+    who: string;
+    label: string;
+    value: string;
+    delta: number | null;
+    unit: "$" | "min" | "kg" | "mi";
+    note: string;
+  }[] = [
     {
-      label: "Fuel cost",
-      value: `$${totals.fuel.toFixed(2)}`,
-      note: "Estimate using each trip’s saved diesel price",
+      who: "Driver",
+      label: "Drive time",
+      value: `${totals.minutes.toFixed(0)} min`,
+      delta: vsFastest?.minutes ?? null,
+      unit: "min",
+      note: "Estimated driving; excludes loading/breaks",
     },
     {
+      who: "Company",
+      label: "Fuel cost",
+      value: `$${totals.fuel.toFixed(2)}`,
+      delta: vsFastest?.fuel ?? null,
+      unit: "$",
+      note: "Estimate using saved diesel price",
+    },
+    {
+      who: "Company",
       label: "CO₂",
       value: `${totals.co2.toFixed(1)} kg`,
+      delta: vsFastest?.co2Kg ?? null,
+      unit: "kg",
       note: "Estimated",
     },
     {
+      who: "Residents",
       label: "Truck miles in disadvantaged communities",
       value: totals.missingCommunity ? "—" : `${totals.dacMi.toFixed(1)} mi`,
+      delta: vsFastest?.dacMi ?? null,
+      unit: "mi",
       note: "Overall CES percentile ≥75",
     },
     {
+      who: "Residents",
       label: "Truck miles in high-diesel tracts",
       value: totals.missingCommunity
         ? "—"
         : `${totals.highDieselMi.toFixed(1)} mi`,
+      delta: highDieselVsFastest,
+      unit: "mi",
       note: "Diesel PM percentile ≥75",
     },
   ];
@@ -73,7 +123,13 @@ export default function TodaysPlan() {
         <Link className="text-lg font-semibold tracking-tight" href="/">
           FleetForward
         </Link>
-        <button type="button" onClick={() => setHowOpen(true)} className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-medium text-blue-700 hover:bg-blue-50">How this works</button>
+        <button
+          type="button"
+          onClick={() => setHowOpen(true)}
+          className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-medium text-blue-700 hover:bg-blue-50"
+        >
+          How this works
+        </button>
       </header>
       <div className="mx-auto max-w-7xl space-y-6 px-5 py-7 sm:px-8">
         <div className="flex flex-wrap items-end justify-between gap-4">
@@ -84,9 +140,9 @@ export default function TodaysPlan() {
             <h1 className="text-3xl font-semibold tracking-tight">
               Today’s Plan
             </h1>
-            <p className="mt-2 text-sm text-slate-500">
+            <p className="mt-2 text-sm text-slate-600">
               {ready
-                ? `${dayTrips.length} saved trip${dayTrips.length === 1 ? "" : "s"}`
+                ? `${dayTrips.length} saved trip${dayTrips.length === 1 ? "" : "s"}${dayTrips.length ? ` · ${totals.miles.toFixed(1)} mi` : ""}`
                 : "Loading saved trips…"}{" "}
               {/* · Pacific time */}
             </p>
@@ -131,26 +187,39 @@ export default function TodaysPlan() {
           </p>
         )}
         {ready && !error && <DaySummaryCard trips={dayTrips} />}
-        <section
-          aria-label="Day impact totals"
-          className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5"
-        >
-          {metrics.map((metric) => (
-            <div
-              key={metric.label}
-              className="rounded-xl border border-slate-200 bg-white p-4"
-            >
-              <p className="text-xs font-medium text-slate-500">
-                {metric.label}
-              </p>
-              <p className="mt-3 text-2xl font-semibold tracking-tight tabular-nums">
-                {ready && !error ? metric.value : "—"}
-              </p>
-              <p className="mt-2 text-[10px] text-slate-400">{metric.note}</p>
-            </div>
-          ))}
+        <section aria-label="Day impact totals">
+          <p className="mb-2 text-xs text-slate-600">
+            Change vs. the fastest available route
+          </p>
+          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
+            {metrics.map((metric) => (
+              <div
+                key={metric.label}
+                className="rounded-xl border border-slate-200 bg-white p-4"
+              >
+                <p className="text-xs font-semibold tracking-wide text-slate-500 uppercase">
+                  {metric.who}
+                </p>
+                <p className="mt-1 text-xs font-medium text-slate-600">
+                  {metric.label}
+                </p>
+                <p className="mt-3 text-2xl font-semibold tracking-tight tabular-nums">
+                  {ready && !error ? metric.value : "—"}
+                </p>
+                <p
+                  className={`mt-1 text-xs font-medium tabular-nums ${ready && !error ? impactColor(metric.delta, metric.unit) : "text-slate-500"}`}
+                >
+                  {ready && !error && metric.delta !== null
+                    ? `${impactValue(metric.delta, metric.unit)} vs fastest`
+                    : dayTrips.length && ready && !error
+                      ? "Change unavailable · re-save trips to compare"
+                      : "—"}
+                </p>
+                <p className="mt-2 text-xs text-slate-500">{metric.note}</p>
+              </div>
+            ))}
+          </div>
         </section>
-        <WhosAffected title="Who’s affected today" totals impact={ready && !error ? { fuel: totals.fuel, co2Kg: totals.co2, minutes: totals.minutes, dacMi: totals.missingCommunity ? null : totals.dacMi } : null} />
         {!!dayTrips.length && (
           <section
             aria-label="Saved routes overview"
@@ -158,9 +227,6 @@ export default function TodaysPlan() {
           >
             <div className="mb-3 flex items-baseline justify-between gap-3">
               <h2 className="text-sm font-semibold">Routes at a glance</h2>
-              <span className="text-[11px] text-slate-500">
-                Colors match the trip list
-              </span>
             </div>
             <PlanMap trips={dayTrips} />
           </section>
@@ -171,12 +237,10 @@ export default function TodaysPlan() {
         >
           <div className="flex items-baseline justify-between gap-3 border-b border-slate-100 px-5 py-4">
             <h2 className="text-sm font-semibold">Saved trips</h2>
-            <span className="text-[11px] text-slate-400">
-              Sorted by departure
-            </span>
+            <span className="text-xs text-slate-500">Sorted by departure</span>
           </div>
           {!ready ? (
-            <p role="status" className="p-8 text-sm text-slate-500">
+            <p role="status" className="p-8 text-sm text-slate-600">
               Loading your plan…
             </p>
           ) : !dayTrips.length ? (
@@ -186,7 +250,7 @@ export default function TodaysPlan() {
                   ? "Your plan is unavailable"
                   : "Your day starts with a route"}
               </h3>
-              <p className="mx-auto mt-2 max-w-md text-sm leading-relaxed text-slate-500">
+              <p className="mx-auto mt-2 max-w-md text-sm leading-relaxed text-slate-600">
                 {error
                   ? "Your existing saved data has been preserved."
                   : "Plan a trip, compare disruptions, then save your chosen route here."}
@@ -222,13 +286,13 @@ export default function TodaysPlan() {
                           />
                           <h3 className="text-sm font-semibold">
                             {first.name}{" "}
-                            <span className="mx-1 font-normal text-slate-400">
+                            <span className="mx-1 font-normal text-slate-500">
                               →
                             </span>{" "}
                             {last.name}
                           </h3>
                         </div>
-                        <p className="mt-1.5 pl-4.5 text-xs text-slate-500">
+                        <p className="mt-1.5 pl-4.5 text-xs text-slate-600">
                           {trip.route.stops.length > 2
                             ? `${trip.route.stops.length - 2} stop${trip.route.stops.length > 3 ? "s" : ""} · `
                             : ""}
@@ -236,9 +300,24 @@ export default function TodaysPlan() {
                         </p>
                       </div>
                       <div className="text-sm tabular-nums">
-                        {trip.departureMinutes !== null && trip.arrivalMinutes !== null ? <><span className="font-medium">{planClock(trip.departureMinutes)}</span><span className="mx-2 text-slate-400">→</span><span>{planClock(trip.arrivalMinutes)}</span></> : <span className="text-xs text-slate-500">Departure not set</span>}
-                        <p className="mt-1 text-right text-[10px] text-slate-400">
-                          {trip.departureMinutes === null ? "Add a time in Edit" : "Estimated schedule"}
+                        {trip.departureMinutes !== null &&
+                        trip.arrivalMinutes !== null ? (
+                          <>
+                            <span className="font-medium">
+                              {planClock(trip.departureMinutes)}
+                            </span>
+                            <span className="mx-2 text-slate-500">→</span>
+                            <span>{planClock(trip.arrivalMinutes)}</span>
+                          </>
+                        ) : (
+                          <span className="text-xs text-slate-600">
+                            Departure not set
+                          </span>
+                        )}
+                        <p className="mt-1 text-right text-xs text-slate-500">
+                          {trip.departureMinutes === null
+                            ? "Add a time in Edit"
+                            : "Estimated schedule"}
                         </p>
                       </div>
                       <div className="flex gap-3 text-xs">
@@ -259,19 +338,42 @@ export default function TodaysPlan() {
                         </button>
                       </div>
                     </div>
-                    {(trip.option === "alternate" || trip.draft.settings.disruptions.length > 0) && <WhosAffected compact referenceLabel={trip.tradeoffReference || "Original plan"} impact={trip.tradeoff ?? (trip.option === "baseline" ? decisionImpact(trip.route, trip.route, Number(trip.draft.dieselPrice)) : null)} />}
+                    {trip.fastestTradeoff &&
+                    isNoChange(trip.fastestTradeoff.fuel, "$") &&
+                    isNoChange(trip.fastestTradeoff.minutes, "min") &&
+                    isNoChange(trip.fastestTradeoff.dacMi, "mi") ? (
+                      <p className="mt-3 text-xs text-slate-600">
+                        This is the fastest available route
+                      </p>
+                    ) : (
+                      <WhosAffected
+                        compact
+                        referenceLabel="the fastest available route"
+                        impact={trip.fastestTradeoff ?? null}
+                      />
+                    )}
                     <div
                       aria-label="Trip indicators"
                       className="mt-3 flex flex-wrap gap-1.5"
                     >
                       {[
                         trip.option === "alternate"
-                          ? (trip.candidate?.tags.includes("Lowest community burden") ? "Lowest DAC miles" : trip.candidate?.tags.includes("Lowest emissions") ? "Lowest emissions" : trip.candidate?.tags.includes("Fastest") ? "Fastest" : trip.candidate?.tags.includes("Balanced") ? "Balanced" : trip.candidate?.name || "Alternate route")
+                          ? trip.candidate?.tags.includes(
+                              "Lowest community burden",
+                            )
+                            ? "Lowest DAC miles"
+                            : trip.candidate?.tags.includes("Lowest emissions")
+                              ? "Lowest emissions"
+                              : trip.candidate?.tags.includes("Fastest")
+                                ? "Fastest"
+                                : trip.candidate?.tags.includes("Balanced")
+                                  ? "Balanced"
+                                  : trip.candidate?.name || "Alternate route"
                           : "Original plan",
                       ].map((indicator, i) => (
                         <span
                           key={`${i}-${indicator}`}
-                          className="rounded-md border border-slate-200 bg-slate-50 px-2 py-1 text-[10px] text-slate-600"
+                          className="rounded-md border border-slate-200 bg-slate-50 px-2 py-1 text-xs text-slate-600"
                         >
                           {indicator}
                         </span>
@@ -284,7 +386,7 @@ export default function TodaysPlan() {
           )}
         </section>
       </div>
-    {howOpen && <HowItWorks onClose={() => setHowOpen(false)} />}
+      {howOpen && <HowItWorks onClose={() => setHowOpen(false)} />}
     </main>
   );
 }

@@ -110,14 +110,14 @@ export default function RouteAssistant(props: AssistantProps) {
   }
   return <div className="mt-3 flex min-h-0 flex-col">
     {offline && <p role="alert" className="mb-2 rounded-lg border border-amber-200 bg-amber-50 p-2 text-xs text-amber-900">{ASSISTANT_OFFLINE}</p>}
-    {!props.ready && <p className="mb-2 text-xs text-slate-500">Set a route to simulate disruptions with Bolt.</p>}
+    {!props.ready && <p className="mb-2 text-xs text-slate-600">Set a route to simulate disruptions with Bolt.</p>}
     <div role="log" aria-label="Dispatch assistant messages" className="min-h-24 max-h-[min(38dvh,360px)] space-y-3 overflow-y-auto overscroll-contain pr-1 text-xs">
       {!lines.length && <div className="space-y-2 py-2">
-        <p className="text-slate-500">Describe a scenario to apply it to your route.</p>
-        {EXAMPLES.map(example => <button key={example} disabled={!props.ready || busy} onClick={() => void send(example)} className="block rounded-full border border-slate-200 px-3 py-2 text-left text-[11px] text-blue-700 hover:bg-blue-50 disabled:opacity-40">{example}</button>)}
+        <p className="text-slate-600">Describe a scenario to apply it to your route.</p>
+        {EXAMPLES.map(example => <button key={example} disabled={!props.ready || busy} onClick={() => void send(example)} className="block rounded-full border border-slate-200 px-3 py-2 text-left text-xs text-blue-700 hover:bg-blue-50 disabled:opacity-40">{example}</button>)}
       </div>}
-      {lines.map(line => <div key={line.id} className={line.role === "user" ? "ml-6 rounded-xl bg-blue-50 px-3 py-2 text-slate-800" : line.role === "system" ? "rounded-lg border border-slate-200 bg-slate-50 p-2 text-[10px] text-slate-600" : "pr-2 leading-relaxed text-slate-600"}>
-        {line.text || (busy ? <span className="text-slate-400">{status || "Replying locally…"}</span> : null)}
+      {lines.map(line => <div key={line.id} className={line.role === "user" ? "ml-6 rounded-xl bg-blue-50 px-3 py-2 text-slate-800" : line.role === "system" ? "rounded-lg border border-slate-200 bg-slate-50 p-2 text-xs text-slate-600" : "pr-2 leading-relaxed text-slate-600"}>
+        {line.text || (busy ? <span className="text-slate-500">{status || "Replying locally…"}</span> : null)}
         {line.role === "assistant" && line.text && busy && line.id === lines.at(-1)?.id && <span aria-hidden className="route-explanation-caret ml-0.5 inline-block h-[1em] w-px bg-current align-[-0.1em]" />}
         {line.undoId && <button type="button" onClick={() => void undo()} disabled={busy || undos.at(-1)?.id !== line.undoId} className="ml-2 font-medium text-blue-700 underline disabled:text-slate-400 disabled:no-underline">{undos.some(undo => undo.id === line.undoId) ? "Undo" : "Undone"}</button>}
       </div>)}
@@ -128,6 +128,6 @@ export default function RouteAssistant(props: AssistantProps) {
       <textarea id="assistant-message" rows={2} maxLength={1000} value={input} onChange={event => setInput(event.target.value)} disabled={!props.ready || busy} placeholder="Describe a disruption…" className="route-input min-w-0 flex-1 resize-none text-xs" onKeyDown={event => { if (event.key === "Enter" && !event.shiftKey && !event.nativeEvent.isComposing) { event.preventDefault(); void send(input); } }} />
       <button type="submit" disabled={!props.ready || busy || !input.trim()} className="rounded-lg bg-blue-600 px-3 py-2.5 text-xs font-medium text-white disabled:opacity-40">Send</button>
     </form>
-    <p className="mt-2 text-center text-[9px] text-slate-400">AI · runs locally (Bolt) · simulated scenarios</p>
+    <p className="mt-2 text-center text-[11px] text-slate-500">AI · runs locally (Bolt) · simulated scenarios</p>
   </div>;
 }

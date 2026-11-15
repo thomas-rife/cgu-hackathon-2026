@@ -18,7 +18,7 @@ export default function PopoutDialog({ title, onClose, children }: { title: stri
       onCancel={event => { event.preventDefault(); onClose(); }}
       onClick={event => { if (event.target === event.currentTarget) onClose(); }}>
       <div className="p-5">
-        <div className="mb-4 flex items-center justify-between gap-3"><h2 id={titleId} className="text-base font-semibold">{title}</h2><button type="button" aria-label={`Close ${title.toLowerCase()}`} className="grid size-7 place-items-center rounded-md text-slate-500 hover:bg-slate-100" onClick={onClose}>✕</button></div>
+        <div className="mb-4 flex items-center justify-between gap-3"><h2 id={titleId} className="text-base font-semibold">{title}</h2><button type="button" aria-label={`Close ${title.toLowerCase()}`} className="grid size-7 place-items-center rounded-md text-slate-600 hover:bg-slate-100" onClick={onClose}>✕</button></div>
         {children}
       </div>
     </dialog>, document.body,

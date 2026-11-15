@@ -1,0 +1,5 @@
+# Not needed to build or run the app; keeps the 200+ MB of raw data out of Vercel builds.
+data/
+tests/
+test.js
+test-bolt.mjs
